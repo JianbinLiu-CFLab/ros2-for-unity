@@ -16,6 +16,8 @@ Current local maintenance evidence targets Windows 10 LTSC + ROS 2 Jazzy. Window
 
 The historical instructions below assume `C:\dev` and older ROS 2 layouts. For this fork's Jazzy maintenance line, prefer the repository-local scripts and the short-path build bases documented under `D:\ros2unity\plan`.
 
+Do not run `colcon build` directly against this repository's `src` directory when `src\ros2cs` is a junction to a canonical ros2cs checkout. On Windows, Python packages such as `sensor_msgs_py` can compute junction-relative `egg_base` paths incorrectly and fail even though the canonical ros2cs workspace is buildable. Use `build.ps1`, which resolves the canonical ros2cs checkout and builds from that source path.
+
 ### Prerequisites
 
 It is necessary to complete the `ros2cs` Windows prerequisites for the same branch/fork used by this repository. For this maintenance line, `ros2cs.repos` points to the maintained `JianbinLiu-CFLab/ros2cs` `main` branch.
