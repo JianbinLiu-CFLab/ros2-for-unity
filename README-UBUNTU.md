@@ -3,6 +3,8 @@
 This readme contains information specific to Ubuntu 20.04/22.04. For general information, please see [README.md](README.md)
 
 > Current status: these Ubuntu instructions are retained as legacy guidance. This Jazzy maintenance line has not recently revalidated Ubuntu 20.04/22.04/24.04. Treat the commands below as a starting point until a fresh Ubuntu build/test record is added.
+>
+> The current Build GREEN / Unity Load GREEN evidence is Windows-native only. Do not infer Ubuntu support from the Windows Jazzy artifact or Unity Load smoke result.
 
 ## Building
 

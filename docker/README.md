@@ -5,6 +5,8 @@ Currently only building asset on Ubuntu is supported. Build windows version is n
 
 Current status: Docker support is legacy guidance in this maintenance line. It has not been revalidated against the current Jazzy/R2FU fixes.
 
+The current Build GREEN / Unity Load GREEN evidence is Windows-native only. Docker output should not be treated as validated for the current Jazzy maintenance line until a fresh Docker build record is added.
+
 ## Build docker image
 
 1. Source ROS2:

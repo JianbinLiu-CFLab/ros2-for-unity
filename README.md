@@ -30,7 +30,20 @@ The upstream RobotecAI repositories remain the original source and licensing his
 
 ## Current verification status
 
-Current local maintenance evidence is centered on Windows 10 LTSC + ROS 2 Jazzy. The canonical `ros2cs` dependency workspace builds and runs `ros2cs_tests` under the documented short-path Windows layout. R2FU Unity import, Player packaging, and runtime smoke validation are still separate validation stages and should not be inferred from the `ros2cs` workspace result alone.
+Current local maintenance evidence is centered on Windows 10 LTSC + ROS 2 Jazzy.
+
+Verified on the current maintenance line:
+
+- Build GREEN: Windows-native Jazzy standalone asset build through `build.ps1`, using the canonical `ros2cs` workspace and documented short-path Windows layout.
+- Artifact candidate: `Ros2ForUnity_jazzy_standalone_windows_x86_64.zip` with SHA256 `22baf2b624b0fb171efc94b403876491a66e57b39b6f747a3c2e30644ce32188`.
+- Unity Load GREEN: Unity `6000.3.14f1` imports the artifact in a fresh project, compiles scripts, loads key native dependencies, initializes `ROS2UnityCore`, and shuts down cleanly.
+
+Not yet claimed:
+
+- Runtime Smoke GREEN: runtime pub/sub, service/client, graph discovery, sensor scene behavior, and repeated Play/Stop still need dedicated Unity-side validation.
+- Product GREEN: Player export, release signing, deterministic artifact packaging, and broader scenario validation are still later gates.
+
+Test coverage note: current R2FU validation intentionally uses `ros2cs_tests` as the managed/native binding regression signal. Full upstream ROS interface package test sweeps are not claimed here.
 
 Core `ros2cs` assemblies and generated message assemblies stay on `netstandard2.0`; `ros2cs` tests and examples use modern .NET where applicable. R2FU Unity scripts remain Unity/C# runtime scripts and are validated through Unity-side stages.
 

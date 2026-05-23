@@ -4,6 +4,35 @@ This readme contains information specific to Windows. For general information, p
 
 Current local maintenance evidence targets Windows 10 LTSC + ROS 2 Jazzy. Windows 11 is expected to use the same toolchain, but should be verified separately before making release claims.
 
+## Current Windows validation snapshot
+
+The current local validation snapshot is:
+
+```text
+OS:        Windows 10 LTSC
+ROS 2:     Jazzy
+RMW:       rmw_fastrtps_cpp
+Unity:     6000.3.14f1
+R2FU:      a92a1a6
+ros2cs:    65db989
+Artifact:  Ros2ForUnity_jazzy_standalone_windows_x86_64.zip
+SHA256:    22baf2b624b0fb171efc94b403876491a66e57b39b6f747a3c2e30644ce32188
+```
+
+Validated gates:
+
+- Windows-native standalone build through `build.ps1`.
+- Standalone artifact packaging.
+- Unity Load smoke in a fresh Unity project.
+
+Not yet validated by this snapshot:
+
+- Runtime pub/sub or service/client smoke.
+- ROS graph discovery stability.
+- Sensor runtime behavior in a real scene.
+- Unity Player export.
+- Windows 11.
+
 ## Current toolchain policy
 
 - Use ROS 2 Jazzy through the maintained environment wrapper when running ROS/colcon commands in this workspace.
@@ -60,6 +89,37 @@ It is necessary to complete the `ros2cs` Windows prerequisites for the same bran
   create_unity_package.ps1
   ```
   > *NOTE* Please provide path to your Unity executable when prompted. Unity license is required. In case your Unity license has expired, the `create_unity_package.ps1` won't throw any errors but `Ros2ForUnity.unitypackage` won't be generated too.
+
+## Unity Load smoke
+
+For the local maintenance workspace, the reusable Unity Load smoke project is:
+
+```text
+D:\ros2unity\R2FUUnityLoadSmoke
+```
+
+It is intentionally outside this git repository. It validates import/compile/native-load/`ROS2UnityCore` initialization only. It does not validate runtime pub/sub, graph discovery, sensors, Player export, or Product GREEN.
+
+Run it with a standalone-clean environment:
+
+```powershell
+$unity = 'C:\Program Files\Unity\Hub\Editor\6000.3.14f1\Editor\Unity.exe'
+$project = 'D:\ros2unity\R2FUUnityLoadSmoke'
+$log = 'D:\ros2unity\logs\r2fu-unity-load-smoke.log'
+$env:ROS_DISTRO = $null
+$env:ROS_VERSION = $null
+$env:ROS_PYTHON_VERSION = $null
+$env:AMENT_PREFIX_PATH = $null
+$env:COLCON_PREFIX_PATH = $null
+$env:RMW_IMPLEMENTATION = $null
+& $unity -projectPath $project -batchmode -nographics -quit -executeMethod R2FUUnityLoadSmoke.Run -logFile $log
+```
+
+Pass marker:
+
+```text
+R2FU_UNITY_LOAD_SMOKE_PASS
+```
 
 ## Build troubleshooting
 
