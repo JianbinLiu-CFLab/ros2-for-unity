@@ -142,8 +142,7 @@ public abstract class Sensor<T> : ISensor where T : MessageWithHeader, new()
     }
 
     /// <summary>
-    /// This is executed in an executor thread (through RegisterExecutable).
-    /// Unity-facing acquisition happens in Update(); this method only publishes a cached reading.
+    /// Sensor sampling runs on Unity main thread in Update(); this executor-thread method only publishes a cached reading.
     /// </summary>
     internal void ExecutorThreadSensorPublishAction()
     {

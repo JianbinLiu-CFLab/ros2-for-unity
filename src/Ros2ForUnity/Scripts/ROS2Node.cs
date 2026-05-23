@@ -27,8 +27,8 @@ namespace ROS2
 public class ROS2Node : IDisposable
 {
     internal INode node;
-    public ROS2Clock clock;
-    public string name;
+    public ROS2Clock clock { get; private set; }
+    public string name { get; }
     private readonly object mutex = new object();
     private bool disposed;
 
@@ -84,7 +84,14 @@ public class ROS2Node : IDisposable
         {
             if (clockToDispose != null)
             {
-                clockToDispose.Dispose();
+                try
+                {
+                    clockToDispose.Dispose();
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
             }
         }
     }
@@ -160,7 +167,6 @@ public class ROS2Node : IDisposable
         {
             using (QualityOfServiceProfile defaultQos = new QualityOfServiceProfile(QosPresetProfile.DEFAULT))
             {
-                ThrowIfUninitialized("create subscription");
                 return WithLiveNode("create subscription", liveNode => liveNode.CreateSubscription<T>(topicName, callback, defaultQos));
             }
         }
