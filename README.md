@@ -15,6 +15,19 @@ Advantages of this module include:
 - Custom messages are generated automatically with build, using standard ROS2 way. It is straightforward to generate and use them without having to define `.cs` equivalents by hand.
 - The module is wrapped as a Unity asset.
 
+## Maintained integration line
+
+For the JianbinLiu-CFLab fork, `main` is the maintained integration line.
+
+This fork consumes the maintained ros2cs fork through `ros2cs.repos`:
+
+```text
+https://github.com/JianbinLiu-CFLab/ros2cs.git
+version: main
+```
+
+The upstream RobotecAI repositories remain the original source and licensing history, but they are not the active integration target for this Jazzy/R2FU maintenance line. Upstream changes should be reviewed and cherry-picked deliberately.
+
 ## Platforms
 
 Supported OSes:
