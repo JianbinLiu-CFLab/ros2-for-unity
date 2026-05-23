@@ -3,9 +3,11 @@ Ros2 For Unity Docker
 
 Currently only building asset on Ubuntu is supported. Build windows version is not supported.
 
+Current status: Docker support is legacy guidance in this maintenance line. It has not been revalidated against the current Jazzy/R2FU fixes.
+
 ## Build docker image
 
-1. Source ROS2 (foxy or galactic):
+1. Source ROS2:
 
 ```bash
 . /opt/ros/<ROS_DISTRO>/setup.bash
@@ -19,7 +21,7 @@ Currently only building asset on Ubuntu is supported. Build windows version is n
 
 ## Using docker container
 
-1. Run docker container. Container will fetch `master` version of `ros2-for-unity`:
+1. Run docker container. Container should fetch the maintained branch you intend to build:
 
 ```bash
 ./run_container.sh

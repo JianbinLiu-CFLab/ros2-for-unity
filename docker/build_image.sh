@@ -1,8 +1,9 @@
 #!/bin/bash
+set -euo pipefail
 
-if [ -z "$ROS_DISTRO" ]; then
+if [ -z "${ROS_DISTRO:-}" ]; then
     echo "Source your ros2 distro first."
     exit 1
 fi
 
-docker build . --build-arg ROS2_DISTRO=$ROS_DISTRO --tag ros2-for-unity
+docker build . --build-arg ROS2_DISTRO="$ROS_DISTRO" --tag ros2-for-unity

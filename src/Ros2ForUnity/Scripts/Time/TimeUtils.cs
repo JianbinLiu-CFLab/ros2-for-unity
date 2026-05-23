@@ -1,4 +1,5 @@
 // Copyright 2022 Robotec.ai.
+// Modifications Copyright (c) 2026 Jianbin Liu.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
+
 namespace ROS2
 {
 
@@ -22,9 +25,28 @@ internal static class TimeUtils
 {
   public static void TimeFromTotalSeconds(in double secondsIn, out int seconds, out uint nanoseconds)
   {
-    long nanosec = (long)(secondsIn * 1e9);
-    seconds = (int)(nanosec / 1000000000);
-    nanoseconds = (uint)(nanosec % 1000000000);
+    if (Double.IsNaN(secondsIn) || Double.IsInfinity(secondsIn))
+    {
+      throw new ArgumentOutOfRangeException(nameof(secondsIn), "ROS time cannot be NaN or infinity");
+    }
+
+    double wholeSeconds = Math.Floor(secondsIn);
+    double fractionalSeconds = secondsIn - wholeSeconds;
+    long wholeNanoseconds = (long)Math.Round(fractionalSeconds * 1000000000.0);
+
+    if (wholeNanoseconds >= 1000000000)
+    {
+      wholeSeconds += 1.0;
+      wholeNanoseconds -= 1000000000;
+    }
+
+    if (wholeSeconds < Int32.MinValue || wholeSeconds > Int32.MaxValue)
+    {
+      throw new OverflowException("ROS time seconds exceed Int32 range");
+    }
+
+    seconds = (int)wholeSeconds;
+    nanoseconds = (uint)wholeNanoseconds;
   }
 }
 

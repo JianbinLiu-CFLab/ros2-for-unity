@@ -13,6 +13,9 @@
 .PARAMETER output_dir
     output file directory
 #>
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+
 Param (
     [Parameter(Mandatory=$true)][string]$unity_path,
     [Parameter(Mandatory=$false)][string]$input_asset,
@@ -40,7 +43,15 @@ if(-Not (Test-Path -Path "$output_dir")) {
     mkdir ${output_dir} | Out-Null
 }
 
-& "$unity_path" -version | Tee-Object -Variable unity_version | Out-Null
+if (-Not (Test-Path -Path "$unity_path")) {
+    throw "Unity editor executable '$unity_path' does not exist."
+}
+
+$unityVersionOutput = & "$unity_path" -version
+if ($LASTEXITCODE -ne 0) {
+    throw "Unity editor version check failed with exit code $LASTEXITCODE"
+}
+$unity_version = ($unityVersionOutput | Select-Object -First 1).Trim()
 
 if ($unity_version -match '^[0-9]{4}\.[0-9]*\.[0-9]*[f]?[0-9]*$') {
     Write-Host "Unity editor confirmed."
@@ -58,7 +69,8 @@ if ($unity_version -match '^[0-9]{4}\.[0-9]*\.[0-9]*[f]?[0-9]*$') {
 }
 Write-Host "Using ${unity_path} editor."
 
-$tmp_project_path = Join-Path -Path "$temp_dir" -ChildPath "\ros2cs_unity_project\$unity_version"
+$safe_unity_version = $unity_version -replace '[^A-Za-z0-9._-]', '_'
+$tmp_project_path = Join-Path -Path "$temp_dir" -ChildPath "\ros2cs_unity_project\$safe_unity_version"
 
 # Create temp project
 if(Test-Path -Path "$tmp_project_path") {
@@ -67,6 +79,9 @@ if(Test-Path -Path "$tmp_project_path") {
 } else {
     Write-Host "Creating Unity temporary project for Unity $unity_version..."
     & "$unity_path" -createProject "$tmp_project_path" -batchmode -quit | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unity project creation failed with exit code $LASTEXITCODE"
+    }
 }
 
 # Copy asset
@@ -76,6 +91,9 @@ Copy-Item -Path "$input_asset" -Destination "$tmp_project_path\Assets\$package_n
 # Creating asset
 Write-Host "Saving unitypackage '$output_dir\$package_name.unitypackage'..."
 & "$unity_path" -projectPath "$tmp_project_path" -exportPackage "Assets\$package_name" "$output_dir\$package_name.unitypackage" -batchmode -quit | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    throw "Unity package export failed with exit code $LASTEXITCODE"
+}
 
 # Cleaning up
 Write-Host "Cleaning up temporary project..."

@@ -2,9 +2,11 @@
 
 This readme contains information specific to Ubuntu 20.04/22.04. For general information, please see [README.md](README.md)
 
+> Current status: these Ubuntu instructions are retained as legacy guidance. This Jazzy maintenance line has not recently revalidated Ubuntu 20.04/22.04/24.04. Treat the commands below as a starting point until a fresh Ubuntu build/test record is added.
+
 ## Building
 
-We assume that working directory is `~/ros2-for-unity` and we are using `ROS2 galactic` (replace with `foxy`, `humble`, `jazzy` or `rolling` where applicable).
+We assume that working directory is `~/ros2-for-unity` and we are using a sourced ROS 2 installation. Older examples mention Galactic/Foxy; the current active maintenance target is Jazzy.
 
 ### Prerequisites
 
@@ -14,12 +16,12 @@ Start with installation of dependencies. Make sure to complete each step of `ros
 
 * Clone this project.
     ```bash
-    git clone git@github.com:RobotecAI/ros2-for-unity.git ~/ros2-for-unity
+    git clone git@github.com:JianbinLiu-CFLab/ros2-for-unity.git ~/ros2-for-unity
     ```
 * You need to source your ROS2 installation before you proceed, for each new open terminal. It is convenient to include this command in your `~/.profile` file.
     ```bash
-    # galactic
-    . /opt/ros/galactic/setup.bash
+    # jazzy
+    . /opt/ros/jazzy/setup.bash
     ```
 * Enter `Ros2ForUnity` working directory.
     ```bash
@@ -50,7 +52,7 @@ Start with installation of dependencies. Make sure to complete each step of `ros
 ## OS-Specific usage remarks
 
 You can run Unity Editor or App executable from GUI (clicking) or from terminal as long as ROS2 is sourced in your environment.
-The best way to ensure that system-wide is to add `source /opt/ros/foxy/setup.bash` to your `~/.profile` file.
+The best way to ensure that system-wide is to add `source /opt/ros/jazzy/setup.bash` to your `~/.profile` file.
 Note that you need to re-log for changes in `~/.profile` to take place.
 Running Unity Editor through Unity Hub is also supported.
 

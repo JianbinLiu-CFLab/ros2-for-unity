@@ -1,27 +1,37 @@
-# ROS2 For Unity - Windows 10
+# ROS2 For Unity - Windows 10/11
 
-This readme contains information specific to Window 10. For general information, please see [README.md](README.md).
+This readme contains information specific to Windows. For general information, please see [README.md](README.md).
+
+Current local maintenance evidence targets Windows 10 LTSC + ROS 2 Jazzy. Windows 11 is expected to use the same toolchain, but should be verified separately before making release claims.
+
+## Current toolchain policy
+
+- Use ROS 2 Jazzy through the maintained environment wrapper when running ROS/colcon commands in this workspace.
+- Use Ninja as the Windows generator for Jazzy builds. This is the preferred ROS 2 Windows build shape and avoids unsupported Visual Studio generator detection with newer Visual Studio shells.
+- If Visual Studio 2026 / `VSCMD_VER=18.*` is present, do not rely on colcon auto-detecting a Visual Studio generator. Pass `-G Ninja` or set the generator through the wrapper/build orchestrator.
+- If CMake finds the wrong Python, pass `"-DPython3_EXECUTABLE:FILEPATH=<jazzy-pixi-python>"` as one quoted `-D` argument.
+- ROS 2 Jazzy + FastRTPS may print `ERRORFailed to load RTI Connext DDS Micro` while probing installed RMW plugins. Treat it as non-blocking only when `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`, build/test exit codes are 0, and the message appears only in ROS interface package stderr.
 
 ## Building
 
-We assume that working directory is `C:\dev` and we are using `ROS2 galactic` (replace with `foxy`, `humble`, `jazzy` or `rolling` where applicable).
+The historical instructions below assume `C:\dev` and older ROS 2 layouts. For this fork's Jazzy maintenance line, prefer the repository-local scripts and the short-path build bases documented under `D:\ros2unity\plan`.
 
 ### Prerequisites
 
-It is necessary to complete all the steps for `ros2cs` [Prerequisites](https://github.com/RobotecAI/ros2cs/blob/master/README-WINDOWS.md#prerequisites) and consider [Important notices](https://github.com/RobotecAI/ros2cs/blob/master/README-WINDOWS.md#important-notices) sections.
+It is necessary to complete the `ros2cs` Windows prerequisites for the same branch/fork used by this repository. For this maintenance line, `ros2cs.repos` points to the maintained `JianbinLiu-CFLab/ros2cs` `main` branch.
 
 ### Steps
 
 * Make sure [long paths on Windows are enabled](https://github.com/RobotecAI/ros2cs/blob/master/README-WINDOWS.md#important-notices)
-* Make sure you open [`Developer PowerShell for VS` with administrator privileges](https://github.com/RobotecAI/ros2cs/blob/master/README-WINDOWS.md#important-notices)
-* For `ros2 galactic` distribution, it is best to [create a `C:\ci\ws\install\include` directory](https://github.com/RobotecAI/ros2cs/blob/master/README-WINDOWS.md#important-notices)
+* Make sure you open a Visual Studio Developer PowerShell compatible with the installed ROS 2 Jazzy toolchain.
+* Prefer Ninja generator builds on Windows. Newer Visual Studio generator names may not be supported by the Jazzy-pinned CMake/colcon stack.
 * Clone this project.
   ```powershell
-  git clone git@github.com:RobotecAI/ros2-for-unity.git C:\dev\ros2-for-unity
+  git clone git@github.com:JianbinLiu-CFLab/ros2-for-unity.git C:\dev\ros2-for-unity
   ```
-* Source your ROS2 installation (`C:\dev\ros2_foxy\local_setup.ps1`) in the terminal before you proceed.
+* Source your ROS2 installation in the terminal before you proceed.
   ```
-  C:\dev\ros2_foxy\local_setup.ps1
+  C:\dev\ros2_jazzy\local_setup.ps1
   ```
 * Enter `Ros2ForUnity` working directory.
     ```powershell

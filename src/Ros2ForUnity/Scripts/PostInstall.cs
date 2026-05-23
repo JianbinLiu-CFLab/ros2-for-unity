@@ -1,4 +1,5 @@
 // Copyright 2019-2022 Robotec.ai.
+// Modifications Copyright (c) 2026 Jianbin Liu.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,6 +43,12 @@ internal class PostInstall : IPostprocessBuildWithReport
         var r2csMeta = ROS2ForUnity.GetPluginPath() + "/" + r2csMetadataName;
         var outputDir = Directory.GetParent(report.summary.outputPath);
         var execFilename = Path.GetFileNameWithoutExtension(report.summary.outputPath);
+        if (!File.Exists(r2fuMeta) || !File.Exists(r2csMeta)) {
+            throw new FileNotFoundException(
+                "Cannot copy ROS2 metadata after build. Missing source: " +
+                (!File.Exists(r2fuMeta) ? r2fuMeta : r2csMeta));
+        }
+
         FileUtil.CopyFileOrDirectory(
             r2fuMeta, outputDir + "/" + execFilename + "_Data/" + r2fuMetadataName);
         if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.StandaloneLinux64) {
@@ -49,7 +56,7 @@ internal class PostInstall : IPostprocessBuildWithReport
                 r2csMeta, outputDir + "/" + execFilename + "_Data/Plugins/" + r2csMetadataName);
 
             // Copy versioned libraries (Unity skips them)
-            Regex soWithVersionReg = new Regex(@".*\.so(\.[0-9])+$");
+            Regex soWithVersionReg = new Regex(@".*\.so(\.[0-9]+)+$");
             var versionedLibs = new List<String>(Directory.GetFiles(ROS2ForUnity.GetPluginPath()))
                                     .Where(path => soWithVersionReg.IsMatch(path))
                                     .ToList();

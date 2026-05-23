@@ -1,4 +1,5 @@
 // Copyright 2019-2021 Robotec.ai.
+// Modifications Copyright (c) 2026 Jianbin Liu.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,10 +37,20 @@ public class ROS2ClientExample : MonoBehaviour
     {
         while (ros2Unity.Ok())
         {
-
-            while (!addTwoIntsClient.IsServiceAvailable())
+            if (addTwoIntsClient == null)
             {
                 yield return new WaitForSecondsRealtime(1);
+                continue;
+            }
+
+            while (ros2Unity.Ok() && addTwoIntsClient != null && !addTwoIntsClient.IsServiceAvailable())
+            {
+                yield return new WaitForSecondsRealtime(1);
+            }
+
+            if (!ros2Unity.Ok() || addTwoIntsClient == null)
+            {
+                yield break;
             }
 
             addTwoIntsReq request = new addTwoIntsReq();
@@ -47,7 +58,19 @@ public class ROS2ClientExample : MonoBehaviour
             request.B = Random.Range(0, 100);
             
             asyncTask = addTwoIntsClient.CallAsync(request);
-            asyncTask.ContinueWith((task) => { Debug.Log("Got async answer " + task.Result.Sum); });
+            yield return new WaitUntil(() => asyncTask.IsCompleted || !ros2Unity.Ok());
+            if (!asyncTask.IsCompleted)
+            {
+                yield break;
+            }
+            if (asyncTask.IsFaulted)
+            {
+                Debug.LogException(asyncTask.Exception);
+            }
+            else if (!asyncTask.IsCanceled)
+            {
+                Debug.Log("Got async answer " + asyncTask.Result.Sum);
+            }
             
             yield return new WaitForSecondsRealtime(1);
         }
@@ -57,10 +80,20 @@ public class ROS2ClientExample : MonoBehaviour
     {
         while (ros2Unity.Ok())
         {
-
-            while (!addTwoIntsClient.IsServiceAvailable())
+            if (addTwoIntsClient == null)
             {
                 yield return new WaitForSecondsRealtime(1);
+                continue;
+            }
+
+            while (ros2Unity.Ok() && addTwoIntsClient != null && !addTwoIntsClient.IsServiceAvailable())
+            {
+                yield return new WaitForSecondsRealtime(1);
+            }
+
+            if (!ros2Unity.Ok() || addTwoIntsClient == null)
+            {
+                yield break;
             }
 
             addTwoIntsReq request = new addTwoIntsReq();
@@ -77,6 +110,10 @@ public class ROS2ClientExample : MonoBehaviour
     void Start()
     {
         ros2Unity = GetComponent<ROS2UnityComponent>();
+    }
+
+    private void EnsureClient()
+    {
         if (ros2Unity.Ok())
         {
             if (ros2Node == null)
@@ -90,6 +127,12 @@ public class ROS2ClientExample : MonoBehaviour
 
     void Update()
     {
+        EnsureClient();
+        if (addTwoIntsClient == null)
+        {
+            return;
+        }
+
         if (!isRunning)
         {
             isRunning = true;

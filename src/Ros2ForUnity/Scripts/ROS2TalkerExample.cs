@@ -1,4 +1,5 @@
 // Copyright 2019-2021 Robotec.ai.
+// Modifications Copyright (c) 2026 Jianbin Liu.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +27,7 @@ public class ROS2TalkerExample : MonoBehaviour
     private ROS2UnityComponent ros2Unity;
     private ROS2Node ros2Node;
     private IPublisher<std_msgs.msg.String> chatter_pub;
+    private std_msgs.msg.String msg;
     private int i;
 
     void Start()
@@ -41,10 +43,11 @@ public class ROS2TalkerExample : MonoBehaviour
             {
                 ros2Node = ros2Unity.CreateNode("ROS2UnityTalkerNode");
                 chatter_pub = ros2Node.CreatePublisher<std_msgs.msg.String>("chatter");
+                msg = new std_msgs.msg.String();
             }
 
             i++;
-            std_msgs.msg.String msg = new std_msgs.msg.String();
+            // Example-only hot path: reuse the message wrapper to avoid per-frame native allocations.
             msg.Data = "Unity ROS2 sending: hello " + i;
             chatter_pub.Publish(msg);
         }

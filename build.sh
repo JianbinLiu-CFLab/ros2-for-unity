@@ -1,6 +1,8 @@
 #!/bin/bash
-SCRIPT=$(readlink -f $0)
-SCRIPTPATH=`dirname $SCRIPT`
+set -euo pipefail
+
+SCRIPT=$(readlink -f "$0")
+SCRIPTPATH=$(dirname "$SCRIPT")
 
 display_usage() {
     echo "Usage: "
@@ -55,22 +57,24 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [ $CLEAN_INSTALL == 1 ]; then
+if [ "$CLEAN_INSTALL" == 1 ]; then
     echo "Cleaning install directory..."
-    rm -rf $SCRIPTPATH/install/*
+    if [ -d "$SCRIPTPATH/install" ]; then
+      rm -rf "$SCRIPTPATH/install"/*
+    fi
 fi
 
-if [ $STANDALONE == 1 ]; then
-  python3 $SCRIPTPATH/src/scripts/metadata_generator.py --standalone
+if [ "$STANDALONE" == 1 ]; then
+  python3 "$SCRIPTPATH/src/scripts/metadata_generator.py" --standalone
 else
-  python3 $SCRIPTPATH/src/scripts/metadata_generator.py
+  python3 "$SCRIPTPATH/src/scripts/metadata_generator.py"
 fi
 
-if $SCRIPTPATH/src/ros2cs/build.sh $OPTIONS; then
-    mkdir -p $SCRIPTPATH/install/asset && cp -R $SCRIPTPATH/src/Ros2ForUnity $SCRIPTPATH/install/asset/
-    $SCRIPTPATH/deploy_unity_plugins.sh $SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/
-    cp $SCRIPTPATH/src/Ros2ForUnity/metadata_ros2cs.xml $SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/Linux/x86_64/metadata_ros2cs.xml
-    cp $SCRIPTPATH/src/Ros2ForUnity/metadata_ros2cs.xml $SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/metadata_ros2cs.xml
+if "$SCRIPTPATH/src/ros2cs/build.sh" $OPTIONS; then
+    mkdir -p "$SCRIPTPATH/install/asset" && cp -R "$SCRIPTPATH/src/Ros2ForUnity" "$SCRIPTPATH/install/asset/"
+    "$SCRIPTPATH/deploy_unity_plugins.sh" "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/"
+    cp "$SCRIPTPATH/src/Ros2ForUnity/metadata_ros2cs.xml" "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/Linux/x86_64/metadata_ros2cs.xml"
+    cp "$SCRIPTPATH/src/Ros2ForUnity/metadata_ros2cs.xml" "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/metadata_ros2cs.xml"
 else
     echo "Ros2cs build failed!"
     exit 1

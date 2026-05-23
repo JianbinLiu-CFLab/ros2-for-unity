@@ -28,23 +28,24 @@ version: main
 
 The upstream RobotecAI repositories remain the original source and licensing history, but they are not the active integration target for this Jazzy/R2FU maintenance line. Upstream changes should be reviewed and cherry-picked deliberately.
 
+## Current verification status
+
+Current local maintenance evidence is centered on Windows 10 LTSC + ROS 2 Jazzy. The canonical `ros2cs` dependency workspace builds and runs `ros2cs_tests` under the documented short-path Windows layout. R2FU Unity import, Player packaging, and runtime smoke validation are still separate validation stages and should not be inferred from the `ros2cs` workspace result alone.
+
+Core `ros2cs` assemblies and generated message assemblies stay on `netstandard2.0`; `ros2cs` tests and examples use modern .NET where applicable. R2FU Unity scripts remain Unity/C# runtime scripts and are validated through Unity-side stages.
+
 ## Platforms
 
-Supported OSes:
-- Ubuntu 24.04 (bash)
-- Ubuntu 22.04 (bash)
-- Ubuntu 20.04 (bash)
-- Windows 10* (powershell)
-- Windows 11* (powershell)
-
-> \* ROS2 Galactic and Humble support only Windows 10 ([ROS 2 Windows system requirements](https://docs.ros.org/en/humble/Installation/Windows-Install-Binary.html#system-requirements)), but it is proven that it also works fine on Windows 11.
+Maintained/validated OS status:
+- Windows 10 LTSC + ROS 2 Jazzy: current active maintenance target.
+- Windows 11 + ROS 2 Jazzy: expected to work through the same Windows toolchain, but should be verified separately before release claims.
+- Ubuntu 20.04/22.04/24.04: legacy instructions are retained, but this Jazzy maintenance line has not recently revalidated Ubuntu.
 
 
-Supported ROS2 distributions:
-- Jazzy
-- Humble
-- Galactic
-- Foxy
+ROS 2 distribution status:
+- Jazzy: current active maintenance target.
+- Humble: expected compatibility target, not the current evidence baseline.
+- Foxy/Galactic/Rolling: historical or experimental; do not treat as validated for this fork without a fresh build/test record.
 
 Supported Unity3d:
 - 2020+
@@ -59,9 +60,7 @@ This asset can be prepared in two flavours:
 
 ## Releases
 
-The best way to start quickly is to use our releases.
-
-You can download pre-built [releases](https://github.com/RobotecAI/ros2-for-unity/releases) of the Asset that support both platforms and specific ros2 and Unity3D versions.
+RobotecAI pre-built [releases](https://github.com/RobotecAI/ros2-for-unity/releases) remain useful historical artifacts for their original supported ROS 2 and Unity versions. For this fork's Jazzy maintenance line, build from this repository until fork-specific releases are published.
 
 ## Building
 
@@ -84,7 +83,7 @@ Custom messages can be included in the build by either:
 1. Open or create Unity project.
 1. Import asset into project:
     1. copy `install/asset/Ros2ForUnity` into your project `Assets` folder, or
-    1. if you have deployed an `.unitypackage` - import it in Unity Editor by selecting `Import Package` → `Custom Package`
+    1. if you have deployed an `.unitypackage` - import it in Unity Editor by selecting `Import Package` -> `Custom Package`
 
 ## Usage
 
@@ -190,8 +189,12 @@ otherwise
 1. You can also make an async call:
     ```c#
     Task<example_interfaces.srv.AddTwoInts_Response> asyncTask = addTwoIntsClient.CallAsync(request);
-    ...
-    asyncTask.ContinueWith((task) => { Debug.Log("Got answer " + task.Result.Sum); });
+    yield return new WaitUntil(() => asyncTask.IsCompleted);
+    if (asyncTask.IsFaulted) {
+        Debug.LogException(asyncTask.Exception);
+    } else if (!asyncTask.IsCanceled) {
+        Debug.Log("Got answer " + asyncTask.Result.Sum);
+    }
     ```
 ### Examples
 

@@ -1,25 +1,29 @@
 #!/bin/bash
+set -euo pipefail
 
 source "/opt/ros/$ROS_DISTRO/setup.bash"
 
+R2FU_REPO=${R2FU_REPO:-https://github.com/JianbinLiu-CFLab/ros2-for-unity.git}
+R2FU_REF=${R2FU_REF:-main}
+
 echo "######################################################################"
 echo ""
-echo "Cloning recent version of 'ros2-for-unity'"
+echo "Cloning '$R2FU_REF' from '$R2FU_REPO'"
 echo ""
 echo "######################################################################"
 echo ""
 
-git clone https://github.com/RobotecAI/ros2-for-unity.git /workdir/.ros2-for-unity
+git clone --branch "$R2FU_REF" "$R2FU_REPO" /workdir/.ros2-for-unity
 
 shopt -s dotglob
 mkdir -p /workdir/ros2-for-unity
 mv /workdir/.ros2-for-unity/* /workdir/ros2-for-unity
 cd /workdir/ros2-for-unity/ && ./pull_repositories.sh
-mkdir -p /home/$(whoami)
+mkdir -p "/home/$(whoami)"
 git config --global --add safe.directory /workdir/ros2-for-unity
 shopt -u dotglob
 
-ln -s /workdir/custom_messages /workdir/ros2-for-unity/src/ros2cs/src/custom_messages
+ln -sfn /workdir/custom_messages /workdir/ros2-for-unity/src/ros2cs/src/custom_messages
 
 echo ""
 echo "######################################################################"

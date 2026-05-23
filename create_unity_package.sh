@@ -1,7 +1,8 @@
 #!/bin/bash
+set -euo pipefail
 
-SCRIPT=$(readlink -f $0)
-SCRIPTPATH=`dirname $SCRIPT`
+SCRIPT=$(readlink -f "$0")
+SCRIPTPATH=$(dirname "$SCRIPT")
 
 display_usage() {
   echo "This script creates a temporary Unity project in '/tmp' directory, copy input asset and makes an unity package out of it. Valid Unity license is required."
@@ -67,7 +68,8 @@ if [ ! -d "$INPUT_ASSET" ]; then
     exit 1
 fi
 
-UNITY_VERSION=`$UNITY_PATH -version`
+UNITY_VERSION=$("$UNITY_PATH" -version | head -n 1)
+SAFE_UNITY_VERSION=$(echo "$UNITY_VERSION" | tr -c 'A-Za-z0-9._-' '_')
 
 # Test if unity editor is valid
 if [[ $UNITY_VERSION =~ ^[0-9]{4}\.[0-9]*\.[0-9]*[f]?[0-9]*$ ]]; then
@@ -86,15 +88,15 @@ fi
 
 echo "Using \"${UNITY_PATH}\" editor."
 
-TMP_PROJECT_PATH=/tmp/ros2cs_unity_project/$UNITY_VERSION
+TMP_PROJECT_PATH="/tmp/ros2cs_unity_project/$SAFE_UNITY_VERSION"
 # Create temp project
 if [ -d "$TMP_PROJECT_PATH" ]; then
     echo "Found existing temporary project for Unity $UNITY_VERSION."
-    rm -rf $TMP_PROJECT_PATH/Assets/*
+    rm -rf "$TMP_PROJECT_PATH/Assets"/*
 else
-  rm -rf $TMP_PROJECT_PATH
+  rm -rf "$TMP_PROJECT_PATH"
   echo "Creating Unity temporary project for Unity $UNITY_VERSION..."
-  $UNITY_PATH -createProject $TMP_PROJECT_PATH -batchmode -quit
+  "$UNITY_PATH" -createProject "$TMP_PROJECT_PATH" -batchmode -quit
 fi
 
 # Copy asset
@@ -103,12 +105,12 @@ cp -r "$INPUT_ASSET" "$TMP_PROJECT_PATH/Assets/$PACKAGE_NAME"
 
 # Creating asset
 echo "Saving unitypackage '$OUTPUT_DIR/$PACKAGE_NAME.unitypackage'..."
-mkdir -p $OUTPUT_DIR
-$UNITY_PATH -projectPath "$TMP_PROJECT_PATH" -exportPackage "Assets/$PACKAGE_NAME" "$OUTPUT_DIR/$PACKAGE_NAME.unitypackage" -batchmode -quit
+mkdir -p "$OUTPUT_DIR"
+"$UNITY_PATH" -projectPath "$TMP_PROJECT_PATH" -exportPackage "Assets/$PACKAGE_NAME" "$OUTPUT_DIR/$PACKAGE_NAME.unitypackage" -batchmode -quit
 
 # Cleaning up
 echo "Cleaning up temporary project..."
-rm -rf $TMP_PROJECT_PATH/Assets/*
+rm -rf "$TMP_PROJECT_PATH/Assets"/*
 
 echo "Done!"
 

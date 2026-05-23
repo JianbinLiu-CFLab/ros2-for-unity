@@ -1,4 +1,5 @@
 // Copyright 2019-2022 Robotec.ai.
+// Modifications Copyright (c) 2026 Jianbin Liu.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,13 +30,15 @@ namespace ROS2
     /// anyway with more than one since the underlying library can handle multiple init and shutdown calls,
     /// and does node name uniqueness check independently.
     /// </summary>
-    public class ROS2UnityCore
+    public class ROS2UnityCore : IDisposable
     {
         private ROS2ForUnity ros2forUnity;
         private List<ROS2Node> nodes;
         private List<INode> ros2csNodes; // For performance in spinning
         private List<Action> executableActions;
-        private bool quitting = false;
+        private volatile bool quitting = false;
+        private bool disposed = false;
+        private Thread executorThread;
         private int interval = 2;  // Spinning / executor interval in ms
         private object mutex = new object();
         private double spinTimeout = 0.0001;
@@ -44,7 +47,7 @@ namespace ROS2
         {
             lock (mutex)
             {
-                return (nodes != null && ros2forUnity.Ok());
+                return (!disposed && nodes != null && ros2forUnity.Ok());
             }
         }
 
@@ -57,8 +60,9 @@ namespace ROS2
                 ros2csNodes = new List<INode>();
                 executableActions = new List<Action>();
 
-                Thread publishThread = new Thread(() => Tick());
-                publishThread.Start();
+                executorThread = new Thread(() => Tick());
+                executorThread.IsBackground = true;
+                executorThread.Start();
             }
         }
 
@@ -66,6 +70,7 @@ namespace ROS2
         {
             lock (mutex)
             {
+                ThrowIfDisposed();
                 foreach (ROS2Node n in nodes)
                 {  // Assumed to be a rare operation on rather small (<1k) list
                     if (n.name == name)
@@ -82,10 +87,34 @@ namespace ROS2
 
         public void RemoveNode(ROS2Node node)
         {
+            RemoveNode(node, true);
+        }
+
+        public void DetachNode(ROS2Node node)
+        {
+            RemoveNode(node, false);
+        }
+
+        public void RemoveNode(ROS2Node node, bool dispose)
+        {
+            if (node == null)
+            {
+                return;
+            }
+
+            bool removed = false;
             lock (mutex)
             {
-                ros2csNodes.Remove(node.node);
-                nodes.Remove(node); //Node will be later deleted if unused, by GC
+                if (nodes != null)
+                {
+                    ros2csNodes.Remove(node.node);
+                    removed = nodes.Remove(node);
+                }
+            }
+
+            if (dispose && removed)
+            {
+                node.Dispose();
             }
         }
 
@@ -98,7 +127,11 @@ namespace ROS2
         {
             lock (mutex)
             {
-                executableActions.Add(executable);
+                ThrowIfDisposed();
+                if (!executableActions.Contains(executable))
+                {
+                    executableActions.Add(executable);
+                }
             }
         }
 
@@ -106,7 +139,10 @@ namespace ROS2
         {
             lock (mutex)
             {
-                executableActions.Remove(executable);
+                if (executableActions != null)
+                {
+                    executableActions.Remove(executable);
+                }
             }
         }
 
@@ -117,15 +153,45 @@ namespace ROS2
         {
             while (!quitting)
             {
-                if (Ok())
+                List<Action> actionsSnapshot = null;
+                List<INode> nodesSnapshot = null;
+
+                lock (mutex)
                 {
-                    lock (mutex)
+                    if (!quitting && !disposed && ros2forUnity != null && nodes != null && ros2forUnity.Ok())
                     {
-                        foreach (Action action in executableActions)
+                        actionsSnapshot = new List<Action>(executableActions);
+                        nodesSnapshot = new List<INode>(ros2csNodes);
+                    }
+                }
+
+                if (actionsSnapshot != null)
+                {
+                    foreach (Action action in actionsSnapshot)
+                    {
+                        try
                         {
                             action();
                         }
-                        Ros2cs.SpinOnce(ros2csNodes, spinTimeout);
+                        catch (Exception e)
+                        {
+                            Debug.LogException(e);
+                        }
+                    }
+
+                    if (nodesSnapshot.Count > 0)
+                    {
+                        try
+                        {
+                            Ros2cs.SpinOnce(nodesSnapshot, spinTimeout);
+                        }
+                        catch (Exception e)
+                        {
+                            if (!quitting)
+                            {
+                                Debug.LogException(e);
+                            }
+                        }
                     }
                 }
                 Thread.Sleep(interval);
@@ -134,8 +200,96 @@ namespace ROS2
 
         public void DestroyNow()
         {
-            quitting = true;
-            ros2forUnity.DestroyROS2ForUnity();
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            StopExecutor();
+            DisposeNodes();
+
+            ROS2ForUnity instance = null;
+            lock (mutex)
+            {
+                if (disposed)
+                {
+                    return;
+                }
+
+                disposed = true;
+                instance = ros2forUnity;
+                ros2forUnity = null;
+                executableActions = null;
+                nodes = null;
+                ros2csNodes = null;
+            }
+
+            if (instance != null)
+            {
+                instance.DestroyROS2ForUnity();
+            }
+        }
+
+        private void StopExecutor()
+        {
+            Thread threadToJoin = null;
+            lock (mutex)
+            {
+                quitting = true;
+                threadToJoin = executorThread;
+            }
+
+            if (threadToJoin != null && threadToJoin != Thread.CurrentThread)
+            {
+                if (!threadToJoin.Join(TimeSpan.FromSeconds(2)))
+                {
+                    Debug.LogWarning("ROS2UnityCore executor thread did not stop within 2 seconds");
+                }
+            }
+
+            lock (mutex)
+            {
+                executorThread = null;
+            }
+        }
+
+        private void DisposeNodes()
+        {
+            List<ROS2Node> nodesToDispose = null;
+            lock (mutex)
+            {
+                if (nodes != null)
+                {
+                    nodesToDispose = new List<ROS2Node>(nodes);
+                    nodes.Clear();
+                    ros2csNodes.Clear();
+                }
+            }
+
+            if (nodesToDispose == null)
+            {
+                return;
+            }
+
+            foreach (ROS2Node node in nodesToDispose)
+            {
+                try
+                {
+                    node.Dispose();
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
+            }
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (disposed)
+            {
+                throw new ObjectDisposedException(nameof(ROS2UnityCore));
+            }
         }
     }
 

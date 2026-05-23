@@ -1,9 +1,10 @@
 #!/bin/bash
+set -euo pipefail
 
-SCRIPT=$(readlink -f $0)
-SCRIPTPATH=`dirname $SCRIPT`
+SCRIPT=$(readlink -f "$0")
+SCRIPTPATH=$(dirname "$SCRIPT")
 
-if [ $# -eq 0 ] || [ $1 = "-h" ] || [ $1 = "--help" ]; then
+if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   echo "Usage:" 
   echo "deploy_unity_plugins.sh <PLUGINS_DIR>"
   echo ""
@@ -13,8 +14,12 @@ fi
 
 pluginDir=$1
 
-mkdir -p  ${pluginDir}/Linux/x86_64/
-find install/lib/dotnet/ -maxdepth 1 -not -name "*.pdb" -type f -exec cp {} ${pluginDir} \;
-cp $SCRIPTPATH/install/standalone/* ${pluginDir}/Linux/x86_64/ 2>/dev/null
-find install/lib/ -maxdepth 1 -not -name "*_python.so" -type f -exec cp {} ${pluginDir}/Linux/x86_64/ \;
-cp $SCRIPTPATH/install/resources/*.so ${pluginDir}/Linux/x86_64/ 2>/dev/null
+mkdir -p "${pluginDir}/Linux/x86_64/"
+find "$SCRIPTPATH/install/lib/dotnet/" -maxdepth 1 -not -name "*.pdb" -type f -exec cp {} "${pluginDir}" \;
+if [ -d "$SCRIPTPATH/install/standalone" ]; then
+  find "$SCRIPTPATH/install/standalone" -maxdepth 1 -type f -exec cp {} "${pluginDir}/Linux/x86_64/" \;
+fi
+find "$SCRIPTPATH/install/lib/" -maxdepth 1 -not -name "*_python.so" -type f -exec cp {} "${pluginDir}/Linux/x86_64/" \;
+if [ -d "$SCRIPTPATH/install/resources" ]; then
+  find "$SCRIPTPATH/install/resources" -maxdepth 1 -name "*.so" -type f -exec cp {} "${pluginDir}/Linux/x86_64/" \;
+fi

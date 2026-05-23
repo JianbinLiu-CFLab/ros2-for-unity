@@ -1,4 +1,5 @@
 // Copyright 2019-2021 Robotec.ai.
+// Modifications Copyright (c) 2026 Jianbin Liu.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +14,6 @@
 // limitations under the License.
 
 using UnityEngine;
-using UnityEngine.Profiling;
 using System;
 
 namespace ROS2
@@ -82,15 +82,13 @@ public abstract class Sensor<T> : ISensor where T : MessageWithHeader, new()
     protected double desiredFrameTime = 0.0;
     private const double minimumFrequency = 0.001;
     private Publisher<T> publisher;
-    private Subscription<rosgraph_msgs.msg.Clock> clockSubscriber;
     private ROS2UnityComponent ros2UnityComponent;
     private ROS2Node ros2Node;
     private string ownerAgentName;
-    private double lastTimestamp;
-    private double timeSinceLastFixedUpdate;
 
     private T readings;
     private bool newReadings;
+    private readonly object readingsMutex = new object();
 
     public override string frameName()
     {
@@ -144,29 +142,30 @@ public abstract class Sensor<T> : ISensor where T : MessageWithHeader, new()
     }
 
     /// <summary>
-    /// This is executed in an executor thread (through RegisterExecutable)
-    /// Sensor fequency is indirectly handed through newReadings, which are acquired at a requested
-    /// frequency if possible (e. g. due to simulation resource constraints)
+    /// This is executed in an executor thread (through RegisterExecutable).
+    /// Unity-facing acquisition happens in Update(); this method only publishes a cached reading.
     /// </summary>
     internal void ExecutorThreadSensorPublishAction()
     {
-        if (!HasNewData())
-            return;
+        T readingToPublish = null;
 
-        if (publisher != null & publishing)
+        lock (readingsMutex)
         {
-            if (ros2UnityComponent.Ok())
+            if (newReadings && publisher != null && publishing)
             {
-                readings = AcquireValue();
-                readings.SetHeaderFrame(frameName());
-                if (readings != null)
-                {
-                    MessageWithHeader readingsHeader = readings as MessageWithHeader;
-                    ros2Node.clock.UpdateROSTimestamp(ref readingsHeader);
-                    publisher.Publish(readings);
-                }
+                readingToPublish = readings;
+                newReadings = false;
             }
         }
+
+        if (readingToPublish == null || ros2UnityComponent == null || !ros2UnityComponent.Ok())
+        {
+            return;
+        }
+
+        MessageWithHeader readingsHeader = readingToPublish as MessageWithHeader;
+        ros2Node.clock.UpdateROSTimestamp(ref readingsHeader);
+        publisher.Publish(readingToPublish);
     }
 
     /// <summary>
@@ -178,6 +177,34 @@ public abstract class Sensor<T> : ISensor where T : MessageWithHeader, new()
     {
         VisualiseEffects();
         OnUpdate();
+        UpdateReadingOnMainThread();
+    }
+
+    private void UpdateReadingOnMainThread()
+    {
+        if (!publishing || publisher == null || ros2UnityComponent == null || !ros2UnityComponent.Ok())
+        {
+            return;
+        }
+
+        // HasNewData() and AcquireValue() may call Unity APIs; keep them on the Unity main thread.
+        if (!HasNewData())
+        {
+            return;
+        }
+
+        T acquiredReading = AcquireValue();
+        if (acquiredReading == null)
+        {
+            return;
+        }
+
+        acquiredReading.SetHeaderFrame(frameName());
+        lock (readingsMutex)
+        {
+            readings = acquiredReading;
+            newReadings = true;
+        }
     }
 
     /// <summary>
@@ -188,7 +215,26 @@ public abstract class Sensor<T> : ISensor where T : MessageWithHeader, new()
         // turn on publishing on start
         publishing = true;
         CalculateFrameTime();
-        lastTimestamp = DateTime.UtcNow.Ticks / 1E7;
+    }
+
+    protected virtual void OnDisable()
+    {
+        UnregisterExecutable();
+    }
+
+    protected virtual void OnDestroy()
+    {
+        UnregisterExecutable();
+    }
+
+    private void UnregisterExecutable()
+    {
+        if (ros2UnityComponent != null)
+        {
+            ros2UnityComponent.UnregisterExecutable(ExecutorThreadSensorPublishAction);
+            ros2UnityComponent = null;
+        }
+        publishing = false;
     }
 
     /// <summary>

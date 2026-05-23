@@ -1,4 +1,5 @@
 // Copyright 2019-2021 Robotec.ai.
+// Modifications Copyright (c) 2026 Jianbin Liu.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +32,8 @@ public class ROS2PerformanceTest : MonoBehaviour
     private IPublisher<sensor_msgs.msg.PointCloud2> perf_pub;
     sensor_msgs.msg.PointCloud2 msg;
     private bool initialized = false;
+    private volatile bool quitting = false;
+    private Thread publishThread;
 
     void Start()
     {
@@ -53,7 +56,7 @@ public class ROS2PerformanceTest : MonoBehaviour
 
     private void Publish()
     {
-        while(true)
+        while(!quitting)
         {
             if (ros2Unity.Ok())
             {
@@ -71,6 +74,10 @@ public class ROS2PerformanceTest : MonoBehaviour
                     Thread.Sleep(interval_ms);
                 }
             }
+            else
+            {
+                Thread.Sleep(100);
+            }
         }
     }
 
@@ -78,9 +85,20 @@ public class ROS2PerformanceTest : MonoBehaviour
     {
         if (!initialized)
         {
-            Thread publishThread = new Thread(() => Publish());
+            publishThread = new Thread(() => Publish());
+            publishThread.IsBackground = true;
             publishThread.Start();
             initialized = true;
+        }
+    }
+
+    void OnDestroy()
+    {
+        quitting = true;
+        if (publishThread != null && publishThread != Thread.CurrentThread)
+        {
+            publishThread.Join(2000);
+            publishThread = null;
         }
     }
 

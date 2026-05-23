@@ -1,4 +1,5 @@
 // Copyright 2022 Robotec.ai.
+// Modifications Copyright (c) 2026 Jianbin Liu.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using System.Threading;
 using UnityEngine;
 
@@ -21,9 +23,10 @@ namespace ROS2
 /// <summary>
 /// ros2 time source (system time by default).
 /// </summary>
-public class ROS2ScalableTimeSource : ITimeSource
+public class ROS2ScalableTimeSource : ITimeSource, IDisposable
 {
-  private Thread mainThread;
+  private readonly object mutex = new object();
+  private int mainThreadId;
   private double lastReadingSecs;
   private ROS2.Clock clock;
   private double initialTime = 0;
@@ -34,7 +37,8 @@ public class ROS2ScalableTimeSource : ITimeSource
 
   public ROS2ScalableTimeSource()
   {
-    mainThread = Thread.CurrentThread;
+    mainThreadId = Thread.CurrentThread.ManagedThreadId;
+    UpdateUnityTimeSnapshot();
   }
 
   public void GetTime(out int seconds, out uint nanoseconds)
@@ -52,39 +56,68 @@ public class ROS2ScalableTimeSource : ITimeSource
       clock = new ROS2.Clock();
     }
 
-    if (!initialTimeScaleAcquired)
+    bool isMainThread = mainThreadId == Thread.CurrentThread.ManagedThreadId;
+    if (isMainThread)
     {
-      initialTimeScaleAcquired = true;
-      initialTimeScale = Time.timeScale;
+      UpdateUnityTimeSnapshot();
     }
 
-    if (initialTimeScale != Time.timeScale)
+    double readingSecs;
+    double scaleAtRead;
+    bool scaleChangedAtRead;
+    lock (mutex)
     {
-      timeScaleChanged = true;
+      readingSecs = lastReadingSecs;
+      scaleAtRead = initialTimeScale;
+      scaleChangedAtRead = timeScaleChanged;
     }
 
-    lastReadingSecs = mainThread.Equals(Thread.CurrentThread) ? Time.timeAsDouble : lastReadingSecs;
-
-    if (initialTimeScale == 1.0 && !timeScaleChanged)
+    if (scaleAtRead == 1.0 && !scaleChangedAtRead)
     {
       TimeUtils.TimeFromTotalSeconds(clock.Now.Seconds, out seconds, out nanoseconds);
     }
     else
     {
-      if (!initialTimeAcquired)
+      double rosNow = clock.Now.Seconds;
+      double adjustedTime;
+      lock (mutex)
       {
-        initialTimeAcquired = true;
-        initialTime = clock.Now.Seconds - Time.timeAsDouble;
+        if (!initialTimeAcquired)
+        {
+          initialTimeAcquired = true;
+          initialTime = rosNow - readingSecs;
+        }
+        adjustedTime = readingSecs + initialTime;
       }
-      TimeUtils.TimeFromTotalSeconds(lastReadingSecs + initialTime, out seconds, out nanoseconds);
+      TimeUtils.TimeFromTotalSeconds(adjustedTime, out seconds, out nanoseconds);
     }
   }
 
-  ~ROS2ScalableTimeSource()
+  private void UpdateUnityTimeSnapshot()
+  {
+    lock (mutex)
+    {
+      if (!initialTimeScaleAcquired)
+      {
+        initialTimeScaleAcquired = true;
+        initialTimeScale = Time.timeScale;
+      }
+
+      if (initialTimeScale != Time.timeScale)
+      {
+        timeScaleChanged = true;
+      }
+
+      lastReadingSecs = Time.timeAsDouble;
+    }
+  }
+
+  public void Dispose()
   {
     if (clock != null)
     {
       clock.Dispose();
+      clock = null;
     }
   }
 }

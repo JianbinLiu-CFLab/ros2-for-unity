@@ -1,5 +1,8 @@
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
-$pluginDir=$args[0]
+$pluginDir = if ($args.Count -gt 0) { $args[0] } else { "" }
 
 function Print-Help {
 "
@@ -10,30 +13,29 @@ PLUGINS_DIR - Ros2ForUnity/Plugins.
 "
 }
 
-if (([string]::IsNullOrEmpty($pluginDir)) -Or $args[0] -eq "--help" -Or $args[0] -eq "-h")
+if (([string]::IsNullOrEmpty($pluginDir)) -Or $pluginDir -eq "--help" -Or $pluginDir -eq "-h")
 {
     Print-Help
-    exit
+    exit 1
 }
 
 if (Test-Path -Path $pluginDir) {
     Write-Host "Copying plugins to to: '$pluginDir' ..."
-    Get-ChildItem $scriptPath\install\lib\dotnet\ -Recurse -Exclude @('*.pdb') | Copy-Item -Destination ${pluginDir}
+    Get-ChildItem "$scriptPath\install\lib\dotnet\" -Recurse -Exclude @('*.pdb') | Copy-Item -Destination ${pluginDir}
     Write-Host "Plugins copied to: '$pluginDir'" -ForegroundColor Green
     if(-not (Test-Path -Path $pluginDir\Windows\x86_64\)) {
         mkdir ${pluginDir}\Windows\x86_64\
     }
     Write-Host "Copying libraries to: '$pluginDir\Windows\x86_64\' ..."
-    Get-ChildItem $scriptPath\install\bin\ -Recurse -Exclude @('*_py.dll', '*_python.dll') | Copy-Item -Destination ${pluginDir}\Windows\x86_64\
-    if(-not (Test-Path -Path $scriptPath\install\standalone\)) {
-        mkdir $scriptPath\install\standalone
+    Get-ChildItem "$scriptPath\install\bin\" -Recurse -Exclude @('*_py.dll', '*_python.dll') | Copy-Item -Destination ${pluginDir}\Windows\x86_64\
+    if(Test-Path -Path "$scriptPath\install\standalone\") {
+        Copy-Item -Path "$scriptPath\install\standalone\*.dll" -Destination "${pluginDir}\Windows\x86_64\" -ErrorAction SilentlyContinue
     }
-    (Copy-Item -Path $scriptPath\install\standalone\*.dll -Destination ${pluginDir}\Windows\x86_64\ 4>&1).Message
-    if(-not (Test-Path -Path $scriptPath\install\resources\)) {
-        mkdir $scriptPath\install\resources
+    if(Test-Path -Path "$scriptPath\install\resources\") {
+        Copy-Item -Path "$scriptPath\install\resources\*.dll" -Destination "${pluginDir}\Windows\x86_64\" -ErrorAction SilentlyContinue
     }
-    (Copy-Item -Path $scriptPath\install\resources\*.dll -Destination ${pluginDir}\Windows\x86_64\ 4>&1).Message
     Write-Host "Libraries copied to '${pluginDir}\Windows\x86_64\'" -ForegroundColor Green
 } else {
     Write-Host "Plugins directory: '$pluginDir' doesn't exist. Please create it first manually." -ForegroundColor Red
+    exit 1
 }

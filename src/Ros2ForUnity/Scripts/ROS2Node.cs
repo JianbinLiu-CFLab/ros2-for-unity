@@ -1,4 +1,5 @@
 // Copyright 2019-2021 Robotec.ai.
+// Modifications Copyright (c) 2026 Jianbin Liu.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,9 +14,7 @@
 // limitations under the License.
 
 using System;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEditor;
 
 namespace ROS2
 {
@@ -25,11 +24,12 @@ namespace ROS2
 /// but will also be removed properly with Ros2cs Shutdown, which ROS2 for Unity performs on application quit
 /// The node should be constructed through ROS2UnityComponent class, which also handles spinning
 /// </summary>
-public class ROS2Node
+public class ROS2Node : IDisposable
 {
     internal INode node;
     public ROS2Clock clock;
     public string name;
+    private bool disposed;
 
     // Use ROS2UnityComponent to create a node
     internal ROS2Node(string unityROS2NodeName = "unity_ros2_node")
@@ -39,14 +39,39 @@ public class ROS2Node
         clock = new ROS2Clock();
     }
 
-    ~ROS2Node()
+    public void Dispose()
     {
-        Ros2cs.RemoveNode(node);
+        if (disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            if (node != null)
+            {
+                Ros2cs.RemoveNode(node);
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogException(e);
+        }
+        finally
+        {
+            node = null;
+            if (clock != null)
+            {
+                clock.Dispose();
+                clock = null;
+            }
+            disposed = true;
+        }
     }
 
-    private static void ThrowIfUninitialized(string callContext)
+    private void ThrowIfUninitialized(string callContext)
     {
-        if (!Ros2cs.Ok())
+        if (disposed || node == null || !Ros2cs.Ok())
         {
             throw new InvalidOperationException("Ros2 For Unity is not initialized, can't " + callContext);
         }
@@ -59,8 +84,10 @@ public class ROS2Node
     /// <param name="topicName">topic that will be used for publishing</param>
     public Publisher<T> CreateSensorPublisher<T>(string topicName) where T : Message, new()
     {
-        QualityOfServiceProfile sensorProfile = new QualityOfServiceProfile(QosPresetProfile.SENSOR_DATA);
-        return CreatePublisher<T>(topicName, sensorProfile);
+        using (QualityOfServiceProfile sensorProfile = new QualityOfServiceProfile(QosPresetProfile.SENSOR_DATA))
+        {
+            return CreatePublisher<T>(topicName, sensorProfile);
+        }
     }
 
     /// <summary>
@@ -86,7 +113,11 @@ public class ROS2Node
     {
         if (qos == null)
         {
-            qos = new QualityOfServiceProfile(QosPresetProfile.DEFAULT);
+            using (QualityOfServiceProfile defaultQos = new QualityOfServiceProfile(QosPresetProfile.DEFAULT))
+            {
+                ThrowIfUninitialized("create subscription");
+                return node.CreateSubscription<T>(topicName, callback, defaultQos);
+            }
         }
         ThrowIfUninitialized("create subscription");
         return node.CreateSubscription<T>(topicName, callback, qos);

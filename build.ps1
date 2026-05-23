@@ -11,6 +11,9 @@
 .PARAMETER clean_install
     Makes a clean installation. Removes install dir before deploying
 #>
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+
 Param (
     [Parameter(Mandatory=$false)][switch]$with_tests=$false,
     [Parameter(Mandatory=$false)][switch]$standalone=$false,
@@ -24,7 +27,7 @@ if(-Not (Test-Path -Path "$scriptPath\src\ros2cs")) {
     exit 1
 }
 
-Write-Host $msg -ForegroundColor Green
+Write-Host "Building Ros2ForUnity asset..." -ForegroundColor Green
 $options = @{
     with_tests = $with_tests
     standalone = $standalone
@@ -36,19 +39,25 @@ if($clean_install) {
 }
 
 if($standalone) {
-  & "python" $SCRIPTPATH\src\scripts\metadata_generator.py --standalone
+  & "python" "$scriptPath\src\scripts\metadata_generator.py" --standalone
 } else {
-  & "python" $SCRIPTPATH\src\scripts\metadata_generator.py
+  & "python" "$scriptPath\src\scripts\metadata_generator.py"
+}
+if ($LASTEXITCODE -ne 0) {
+    throw "metadata_generator.py failed with exit code $LASTEXITCODE"
 }
 
 & "$scriptPath\src\ros2cs\build.ps1" @options
-if($?) {
+if($LASTEXITCODE -eq 0) {
     md -Force $scriptPath\install\asset | Out-Null
     Copy-Item -Path $scriptPath\src\Ros2ForUnity -Destination $scriptPath\install\asset\ -Recurse -Force
     
     $plugin_path=Join-Path -Path $scriptPath -ChildPath "\install\asset\Ros2ForUnity\Plugins\"
     Write-Host "Deploying build to $plugin_path" -ForegroundColor Green
     & "$scriptPath\deploy_unity_plugins.ps1" $plugin_path
+    if ($LASTEXITCODE -ne 0) {
+        throw "deploy_unity_plugins.ps1 failed with exit code $LASTEXITCODE"
+    }
 
     Copy-Item -Path $scriptPath\src\Ros2ForUnity\metadata_ros2cs.xml -Destination $scriptPath\install\asset\Ros2ForUnity\Plugins\Windows\x86_64\
     Copy-Item -Path $scriptPath\src\Ros2ForUnity\metadata_ros2cs.xml -Destination $scriptPath\install\asset\Ros2ForUnity\Plugins\

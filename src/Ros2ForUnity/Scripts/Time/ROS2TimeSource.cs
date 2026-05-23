@@ -1,4 +1,5 @@
 // Copyright 2022 Robotec.ai.
+// Modifications Copyright (c) 2026 Jianbin Liu.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using UnityEngine;
 
 namespace ROS2
@@ -20,7 +22,7 @@ namespace ROS2
 /// <summary>
 /// ros2 time source (system time by default).
 /// </summary>
-public class ROS2TimeSource : ITimeSource
+public class ROS2TimeSource : ITimeSource, IDisposable
 {
   private ROS2.Clock clock;
 
@@ -42,11 +44,12 @@ public class ROS2TimeSource : ITimeSource
     TimeUtils.TimeFromTotalSeconds(clock.Now.Seconds, out seconds, out nanoseconds);
   }
 
-  ~ROS2TimeSource()
+  public void Dispose()
   {
     if (clock != null)
     {
       clock.Dispose();
+      clock = null;
     }
   }
 }
