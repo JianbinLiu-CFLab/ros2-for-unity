@@ -50,8 +50,10 @@ while [[ $# -gt 0 ]]; do
       exit 0
       shift # past argument
       ;;
-    *)    # unknown option
-      shift # past argument
+    *)
+      echo "Unknown option: $1"
+      display_usage
+      exit 1
       ;;
   esac
 done
@@ -70,6 +72,10 @@ fi
 
 UNITY_VERSION=$("$UNITY_PATH" -version | head -n 1)
 SAFE_UNITY_VERSION=$(echo "$UNITY_VERSION" | tr -c 'A-Za-z0-9._-' '_')
+if [ -z "$SAFE_UNITY_VERSION" ]; then
+    echo "Cannot derive a safe Unity version path from '$UNITY_VERSION'."
+    exit 1
+fi
 
 # Test if unity editor is valid
 if [[ $UNITY_VERSION =~ ^[0-9]{4}\.[0-9]*\.[0-9]*[f]?[0-9]*$ ]]; then
@@ -94,7 +100,6 @@ if [ -d "$TMP_PROJECT_PATH" ]; then
     echo "Found existing temporary project for Unity $UNITY_VERSION."
     rm -rf "$TMP_PROJECT_PATH/Assets"/*
 else
-  rm -rf "$TMP_PROJECT_PATH"
   echo "Creating Unity temporary project for Unity $UNITY_VERSION..."
   "$UNITY_PATH" -createProject "$TMP_PROJECT_PATH" -batchmode -quit
 fi
@@ -113,4 +118,3 @@ echo "Cleaning up temporary project..."
 rm -rf "$TMP_PROJECT_PATH/Assets"/*
 
 echo "Done!"
-

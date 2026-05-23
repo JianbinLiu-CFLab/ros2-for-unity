@@ -29,7 +29,19 @@ public class ROS2Node : IDisposable
     internal INode node;
     public ROS2Clock clock;
     public string name;
+    private readonly object mutex = new object();
     private bool disposed;
+
+    internal bool IsDisposed
+    {
+        get
+        {
+            lock (mutex)
+            {
+                return disposed;
+            }
+        }
+    }
 
     // Use ROS2UnityComponent to create a node
     internal ROS2Node(string unityROS2NodeName = "unity_ros2_node")
@@ -41,16 +53,27 @@ public class ROS2Node : IDisposable
 
     public void Dispose()
     {
-        if (disposed)
+        INode nodeToDispose = null;
+        ROS2Clock clockToDispose = null;
+        lock (mutex)
         {
-            return;
+            if (disposed)
+            {
+                return;
+            }
+
+            disposed = true;
+            nodeToDispose = node;
+            clockToDispose = clock;
+            node = null;
+            clock = null;
         }
 
         try
         {
-            if (node != null)
+            if (nodeToDispose != null)
             {
-                Ros2cs.RemoveNode(node);
+                Ros2cs.RemoveNode(nodeToDispose);
             }
         }
         catch (Exception e)
@@ -59,21 +82,44 @@ public class ROS2Node : IDisposable
         }
         finally
         {
-            node = null;
-            if (clock != null)
+            if (clockToDispose != null)
             {
-                clock.Dispose();
-                clock = null;
+                clockToDispose.Dispose();
             }
-            disposed = true;
+        }
+    }
+
+    internal bool TryUpdateROSTimestamp(ref MessageWithHeader message)
+    {
+        lock (mutex)
+        {
+            if (disposed || clock == null)
+            {
+                return false;
+            }
+
+            clock.UpdateROSTimestamp(ref message);
+            return true;
         }
     }
 
     private void ThrowIfUninitialized(string callContext)
     {
-        if (disposed || node == null || !Ros2cs.Ok())
+        lock (mutex)
         {
-            throw new InvalidOperationException("Ros2 For Unity is not initialized, can't " + callContext);
+            if (disposed || node == null || !Ros2cs.Ok())
+            {
+                throw new InvalidOperationException("Ros2 For Unity is not initialized, can't " + callContext);
+            }
+        }
+    }
+
+    private TResult WithLiveNode<TResult>(string callContext, Func<INode, TResult> action)
+    {
+        lock (mutex)
+        {
+            ThrowIfUninitialized(callContext);
+            return action(node);
         }
     }
 
@@ -98,8 +144,7 @@ public class ROS2Node : IDisposable
     /// <param name="qos">QoS for publishing. If no QoS is selected, it will default to reliable, keep 10 last</param>
     public Publisher<T> CreatePublisher<T>(string topicName, QualityOfServiceProfile qos = null) where T : Message, new()
     {
-        ThrowIfUninitialized("create publisher");
-        return node.CreatePublisher<T>(topicName, qos);
+        return WithLiveNode("create publisher", liveNode => liveNode.CreatePublisher<T>(topicName, qos));
     }
 
     /// <summary>
@@ -116,11 +161,10 @@ public class ROS2Node : IDisposable
             using (QualityOfServiceProfile defaultQos = new QualityOfServiceProfile(QosPresetProfile.DEFAULT))
             {
                 ThrowIfUninitialized("create subscription");
-                return node.CreateSubscription<T>(topicName, callback, defaultQos);
+                return WithLiveNode("create subscription", liveNode => liveNode.CreateSubscription<T>(topicName, callback, defaultQos));
             }
         }
-        ThrowIfUninitialized("create subscription");
-        return node.CreateSubscription<T>(topicName, callback, qos);
+        return WithLiveNode("create subscription", liveNode => liveNode.CreateSubscription<T>(topicName, callback, qos));
     }
 
 
@@ -131,8 +175,7 @@ public class ROS2Node : IDisposable
     /// <param name="subscription">subscrition to remove, returned from CreateSubscription</param>
     public bool RemoveSubscription<T>(ISubscriptionBase subscription)
     {
-        ThrowIfUninitialized("remove subscription");
-        return node.RemoveSubscription(subscription);
+        return WithLiveNode("remove subscription", liveNode => liveNode.RemoveSubscription(subscription));
     }
 
     /// <summary>
@@ -142,8 +185,7 @@ public class ROS2Node : IDisposable
     /// <param name="publisher">publisher to remove, returned from CreatePublisher or CreateSensorPublisher</param>
     public bool RemovePublisher<T>(IPublisherBase publisher)
     {
-        ThrowIfUninitialized("remove publisher");
-        return node.RemovePublisher(publisher);
+        return WithLiveNode("remove publisher", liveNode => liveNode.RemovePublisher(publisher));
     }
 
     /// <inheritdoc cref="INode.CreateService"/>
@@ -151,15 +193,13 @@ public class ROS2Node : IDisposable
         where I : Message, new()
         where O : Message, new()
     {
-        ThrowIfUninitialized("create service");
-        return node.CreateService<I, O>(topic, callback, qos);
+        return WithLiveNode("create service", liveNode => liveNode.CreateService<I, O>(topic, callback, qos));
     }
 
     /// <inheritdoc cref="INode.RemoveService"/>
     public bool RemoveService(IServiceBase service)
     {
-        ThrowIfUninitialized("remove service");
-        return node.RemoveService(service);
+        return WithLiveNode("remove service", liveNode => liveNode.RemoveService(service));
     }
 
     /// <inheritdoc cref="INode.CreateClient"/>
@@ -167,15 +207,13 @@ public class ROS2Node : IDisposable
         where I : Message, new()
         where O : Message, new()
     {
-        ThrowIfUninitialized(callContext: "create client");
-        return node.CreateClient<I, O>(topic, qos);
+        return WithLiveNode("create client", liveNode => liveNode.CreateClient<I, O>(topic, qos));
     }
 
     /// <inheritdoc cref="INode.RemoveClient"/>
     public bool RemoveClient(IClientBase client)
     {
-        ThrowIfUninitialized(callContext: "remove client");
-        return node.RemoveClient(client);
+        return WithLiveNode("remove client", liveNode => liveNode.RemoveClient(client));
     }
 }
 

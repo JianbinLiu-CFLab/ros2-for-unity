@@ -24,6 +24,7 @@ namespace ROS2
 /// </summary>
 public class ROS2TimeSource : ITimeSource, IDisposable
 {
+  private readonly object clockMutex = new object();
   private ROS2.Clock clock;
 
   public void GetTime(out int seconds, out uint nanoseconds)
@@ -36,20 +37,28 @@ public class ROS2TimeSource : ITimeSource, IDisposable
       return;
     }
 
-    if (clock == null)
-    { // Create clock which uses system time by default (unless use_sim_time is set in ros2)
-      clock = new ROS2.Clock();
+    double nowSeconds;
+    lock (clockMutex)
+    {
+      if (clock == null)
+      { // Create clock which uses system time by default (unless use_sim_time is set in ros2)
+        clock = new ROS2.Clock();
+      }
+      nowSeconds = clock.Now.Seconds;
     }
-  
-    TimeUtils.TimeFromTotalSeconds(clock.Now.Seconds, out seconds, out nanoseconds);
+
+    TimeUtils.TimeFromTotalSeconds(nowSeconds, out seconds, out nanoseconds);
   }
 
   public void Dispose()
   {
-    if (clock != null)
+    lock (clockMutex)
     {
-      clock.Dispose();
-      clock = null;
+      if (clock != null)
+      {
+        clock.Dispose();
+        clock = null;
+      }
     }
   }
 }

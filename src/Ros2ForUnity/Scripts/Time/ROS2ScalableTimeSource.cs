@@ -26,6 +26,7 @@ namespace ROS2
 public class ROS2ScalableTimeSource : ITimeSource, IDisposable
 {
   private readonly object mutex = new object();
+  private readonly object clockMutex = new object();
   private int mainThreadId;
   private double lastReadingSecs;
   private ROS2.Clock clock;
@@ -51,11 +52,6 @@ public class ROS2ScalableTimeSource : ITimeSource, IDisposable
       return;
     }
 
-    if (clock == null)
-    { // Create clock which uses system time by default (unless use_sim_time is set in ros2)
-      clock = new ROS2.Clock();
-    }
-
     bool isMainThread = mainThreadId == Thread.CurrentThread.ManagedThreadId;
     if (isMainThread)
     {
@@ -74,11 +70,12 @@ public class ROS2ScalableTimeSource : ITimeSource, IDisposable
 
     if (scaleAtRead == 1.0 && !scaleChangedAtRead)
     {
-      TimeUtils.TimeFromTotalSeconds(clock.Now.Seconds, out seconds, out nanoseconds);
+      // Until Unity timeScale changes, preserve the default ROS/system clock behavior.
+      TimeUtils.TimeFromTotalSeconds(GetRosNowSeconds(), out seconds, out nanoseconds);
     }
     else
     {
-      double rosNow = clock.Now.Seconds;
+      double rosNow = GetRosNowSeconds();
       double adjustedTime;
       lock (mutex)
       {
@@ -90,6 +87,18 @@ public class ROS2ScalableTimeSource : ITimeSource, IDisposable
         adjustedTime = readingSecs + initialTime;
       }
       TimeUtils.TimeFromTotalSeconds(adjustedTime, out seconds, out nanoseconds);
+    }
+  }
+
+  private double GetRosNowSeconds()
+  {
+    lock (clockMutex)
+    {
+      if (clock == null)
+      { // Create clock which uses system time by default (unless use_sim_time is set in ros2)
+        clock = new ROS2.Clock();
+      }
+      return clock.Now.Seconds;
     }
   }
 
@@ -114,10 +123,13 @@ public class ROS2ScalableTimeSource : ITimeSource, IDisposable
 
   public void Dispose()
   {
-    if (clock != null)
+    lock (clockMutex)
     {
-      clock.Dispose();
-      clock = null;
+      if (clock != null)
+      {
+        clock.Dispose();
+        clock = null;
+      }
     }
   }
 }

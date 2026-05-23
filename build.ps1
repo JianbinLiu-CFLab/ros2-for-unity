@@ -22,6 +22,29 @@ Set-StrictMode -Version Latest
 
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
 
+function Get-DefaultWorkPath {
+    param([Parameter(Mandatory=$true)][string]$Name)
+    $driveRoot = [System.IO.Path]::GetPathRoot($scriptPath)
+    if ([string]::IsNullOrEmpty($driveRoot))
+    {
+        $driveRoot = [System.IO.Path]::GetPathRoot((Get-Location).Path)
+    }
+    return Join-Path -Path $driveRoot -ChildPath $Name
+}
+
+function Resolve-RequiredCommand {
+    param(
+        [Parameter(Mandatory=$true)][string]$Name,
+        [Parameter(Mandatory=$true)][string]$Hint
+    )
+
+    try {
+        return (Get-Command $Name -ErrorAction Stop).Source
+    } catch {
+        throw "Required command '$Name' was not found. $Hint"
+    }
+}
+
 if(-Not (Test-Path -Path "$scriptPath\src\ros2cs")) {
     Write-Host "Pull repositories with 'pull_repositories.ps1' first." -ForegroundColor Red
     exit 1
@@ -49,10 +72,12 @@ $ros2csItem = Get-Item "$scriptPath\src\ros2cs" -Force
 $ros2csPath = if ($ros2csItem.Target -and $ros2csItem.Target.Count -gt 0) { $ros2csItem.Target[0] } else { $ros2csItem.FullName }
 $ros2csSourcePath = Join-Path -Path $ros2csPath -ChildPath "src"
 $ros2csInstallPath = Join-Path -Path $ros2csPath -ChildPath "install"
-$ros2csBuildBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_BUILD_BASE)) { "D:\r2fu_b" } else { $Env:R2FU_ROS2CS_BUILD_BASE }
-$ros2csLogBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_LOG_BASE)) { "D:\r2fu_l" } else { $Env:R2FU_ROS2CS_LOG_BASE }
-$pythonExecutable = if ([string]::IsNullOrEmpty($Env:COLCON_PYTHON_EXECUTABLE)) { (Get-Command python).Source } else { $Env:COLCON_PYTHON_EXECUTABLE }
-$colconExecutable = (Get-Command colcon).Source
+$ros2csBuildBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_BUILD_BASE)) { Get-DefaultWorkPath "r2fu_b" } else { $Env:R2FU_ROS2CS_BUILD_BASE }
+$ros2csLogBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_LOG_BASE)) { Get-DefaultWorkPath "r2fu_l" } else { $Env:R2FU_ROS2CS_LOG_BASE }
+$pythonExecutable = if ([string]::IsNullOrEmpty($Env:COLCON_PYTHON_EXECUTABLE)) {
+    Resolve-RequiredCommand "python" "Run this script through D:\ros2unity\tools\Enter-Ros2JazzyEnv.py, or set COLCON_PYTHON_EXECUTABLE."
+} else { $Env:COLCON_PYTHON_EXECUTABLE }
+$colconExecutable = Resolve-RequiredCommand "colcon" "Run this script through D:\ros2unity\tools\Enter-Ros2JazzyEnv.py so the Jazzy pixi colcon is on PATH."
 
 Write-Host "Building ros2cs from '$ros2csPath' with Ninja/Release..." -ForegroundColor Green
 & $colconExecutable `

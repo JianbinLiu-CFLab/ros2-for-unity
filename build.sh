@@ -20,7 +20,7 @@ if [ ! -d "$SCRIPTPATH/src/ros2cs" ]; then
     exit 1
 fi
 
-OPTIONS=""
+OPTIONS=()
 STANDALONE=0
 TESTS=0
 CLEAN_INSTALL=0
@@ -29,7 +29,7 @@ while [[ $# -gt 0 ]]; do
   key="$1"
   case $key in
     -t|--with-tests)
-      OPTIONS="$OPTIONS --with-tests"
+      OPTIONS+=("--with-tests")
       TESTS=1
       shift # past argument
       ;;
@@ -38,7 +38,7 @@ while [[ $# -gt 0 ]]; do
         echo "Patchelf missing. Standalone build requires patchelf. Install it via apt 'sudo apt install patchelf'."
         exit 1
       fi
-      OPTIONS="$OPTIONS --standalone"
+      OPTIONS+=("--standalone")
       STANDALONE=1
       shift # past argument
       ;;
@@ -51,8 +51,10 @@ while [[ $# -gt 0 ]]; do
       exit 0
       shift # past argument
       ;;
-    *)    # unknown option
-      shift # past argument
+    *)
+      echo "Unknown option: $1"
+      display_usage
+      exit 1
       ;;
   esac
 done
@@ -70,7 +72,7 @@ else
   python3 "$SCRIPTPATH/src/scripts/metadata_generator.py"
 fi
 
-if "$SCRIPTPATH/src/ros2cs/build.sh" $OPTIONS; then
+if "$SCRIPTPATH/src/ros2cs/build.sh" "${OPTIONS[@]}"; then
     mkdir -p "$SCRIPTPATH/install/asset" && cp -R "$SCRIPTPATH/src/Ros2ForUnity" "$SCRIPTPATH/install/asset/"
     "$SCRIPTPATH/deploy_unity_plugins.sh" "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/"
     cp "$SCRIPTPATH/src/Ros2ForUnity/metadata_ros2cs.xml" "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/Linux/x86_64/metadata_ros2cs.xml"

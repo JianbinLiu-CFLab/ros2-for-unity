@@ -42,6 +42,11 @@ internal class PostInstall : IPostprocessBuildWithReport
         var r2fuMeta = ROS2ForUnity.GetRos2ForUnityPath() + "/" + r2fuMetadataName; 
         var r2csMeta = ROS2ForUnity.GetPluginPath() + "/" + r2csMetadataName;
         var outputDir = Directory.GetParent(report.summary.outputPath);
+        if (outputDir == null) {
+            throw new InvalidOperationException(
+                "Cannot copy ROS2 metadata after build. Build output has no parent directory: " +
+                report.summary.outputPath);
+        }
         var execFilename = Path.GetFileNameWithoutExtension(report.summary.outputPath);
         if (!File.Exists(r2fuMeta) || !File.Exists(r2csMeta)) {
             throw new FileNotFoundException(

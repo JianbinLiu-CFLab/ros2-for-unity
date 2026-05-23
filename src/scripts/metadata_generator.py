@@ -20,10 +20,6 @@ import subprocess
 import pathlib
 import os
 
-parser = argparse.ArgumentParser(description='Generate metadata file for ros2-for-unity.')
-parser.add_argument('--standalone', action='store_true', help='is a standalone build')
-args = parser.parse_args()
-
 def get_git_commit(working_directory) -> str:
     return run_git(['rev-parse', 'HEAD'], working_directory)
 
@@ -56,9 +52,6 @@ def get_ros2_for_unity_path() -> pathlib.Path:
 def get_ros2cs_path() -> pathlib.Path:
     return pathlib.Path(__file__).parents[1].joinpath("ros2cs")
 
-def get_ros2_path() -> pathlib.Path:
-    return get_ros2cs_path().joinpath("src").joinpath("ros2").joinpath("rcl_interfaces")
-
 def get_ros2_version() -> str:
     return os.environ.get("ROS_DISTRO", "unknown")
 
@@ -70,32 +63,40 @@ def require_directory(path: pathlib.Path, description: str) -> None:
     if not path.is_dir():
         raise FileNotFoundError(f"{description} not found: {path}")
 
-require_existing_path(get_ros2_for_unity_root_path().joinpath(".git"), "ros2-for-unity .git")
-require_directory(get_ros2cs_path(), "ros2cs checkout")
-require_existing_path(get_ros2cs_path().joinpath(".git"), "ros2cs .git")
-require_directory(get_ros2_for_unity_path(), "Ros2ForUnity asset directory")
+def main() -> None:
+    parser = argparse.ArgumentParser(description='Generate metadata file for ros2-for-unity.')
+    parser.add_argument('--standalone', action='store_true', help='is a standalone build')
+    args = parser.parse_args()
 
-ros2_for_unity = ET.Element("ros2_for_unity")
-ET.SubElement(ros2_for_unity, "ros2").text = get_ros2_version()
-ros2_for_unity_version = ET.SubElement(ros2_for_unity, "version")
-ET.SubElement(ros2_for_unity_version, "sha").text = get_git_commit(get_ros2_for_unity_root_path())
-ET.SubElement(ros2_for_unity_version, "desc").text = get_git_description(get_ros2_for_unity_root_path())
-ET.SubElement(ros2_for_unity_version, "date").text = get_commit_date(get_ros2_for_unity_root_path())
+    require_existing_path(get_ros2_for_unity_root_path().joinpath(".git"), "ros2-for-unity .git")
+    require_directory(get_ros2cs_path(), "ros2cs checkout")
+    require_existing_path(get_ros2cs_path().joinpath(".git"), "ros2cs .git")
+    require_directory(get_ros2_for_unity_path(), "Ros2ForUnity asset directory")
 
-ros2_cs = ET.Element("ros2cs")
-ET.SubElement(ros2_cs, "ros2").text = get_ros2_version()
-ros2_cs_version = ET.SubElement(ros2_cs, "version")
-ET.SubElement(ros2_cs_version, "sha").text = get_git_commit(get_ros2cs_path())
-ET.SubElement(ros2_cs_version, "desc").text = get_git_description(get_ros2cs_path())
-ET.SubElement(ros2_cs_version, "date").text = get_commit_date(get_ros2cs_path())
-ET.SubElement(ros2_cs, "standalone").text = str(int(args.standalone))
+    ros2_for_unity = ET.Element("ros2_for_unity")
+    ET.SubElement(ros2_for_unity, "ros2").text = get_ros2_version()
+    ros2_for_unity_version = ET.SubElement(ros2_for_unity, "version")
+    ET.SubElement(ros2_for_unity_version, "sha").text = get_git_commit(get_ros2_for_unity_root_path())
+    ET.SubElement(ros2_for_unity_version, "desc").text = get_git_description(get_ros2_for_unity_root_path())
+    ET.SubElement(ros2_for_unity_version, "date").text = get_commit_date(get_ros2_for_unity_root_path())
 
-rf2u_xmlstr = minidom.parseString(ET.tostring(ros2_for_unity)).toprettyxml(indent="   ")
-metadata_rf2u_file = get_ros2_for_unity_path().joinpath("metadata_ros2_for_unity.xml")
-with open(str(metadata_rf2u_file), "w", encoding="utf-8") as f:
-    f.write(rf2u_xmlstr)
-    
-r2cs_xmlstr = minidom.parseString(ET.tostring(ros2_cs)).toprettyxml(indent="   ")
-metadata_r2cs_file = get_ros2_for_unity_path().joinpath("metadata_ros2cs.xml")
-with open(str(metadata_r2cs_file), "w", encoding="utf-8") as f:
-    f.write(r2cs_xmlstr)
+    ros2_cs = ET.Element("ros2cs")
+    ET.SubElement(ros2_cs, "ros2").text = get_ros2_version()
+    ros2_cs_version = ET.SubElement(ros2_cs, "version")
+    ET.SubElement(ros2_cs_version, "sha").text = get_git_commit(get_ros2cs_path())
+    ET.SubElement(ros2_cs_version, "desc").text = get_git_description(get_ros2cs_path())
+    ET.SubElement(ros2_cs_version, "date").text = get_commit_date(get_ros2cs_path())
+    ET.SubElement(ros2_cs, "standalone").text = str(int(args.standalone))
+
+    rf2u_xmlstr = minidom.parseString(ET.tostring(ros2_for_unity)).toprettyxml(indent="   ")
+    metadata_rf2u_file = get_ros2_for_unity_path().joinpath("metadata_ros2_for_unity.xml")
+    with open(str(metadata_rf2u_file), "w", encoding="utf-8") as f:
+        f.write(rf2u_xmlstr)
+
+    r2cs_xmlstr = minidom.parseString(ET.tostring(ros2_cs)).toprettyxml(indent="   ")
+    metadata_r2cs_file = get_ros2_for_unity_path().joinpath("metadata_ros2cs.xml")
+    with open(str(metadata_r2cs_file), "w", encoding="utf-8") as f:
+        f.write(r2cs_xmlstr)
+
+if __name__ == "__main__":
+    main()

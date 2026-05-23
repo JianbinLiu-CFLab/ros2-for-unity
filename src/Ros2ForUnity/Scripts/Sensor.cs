@@ -148,24 +148,34 @@ public abstract class Sensor<T> : ISensor where T : MessageWithHeader, new()
     internal void ExecutorThreadSensorPublishAction()
     {
         T readingToPublish = null;
+        Publisher<T> publisherToUse = null;
+        ROS2UnityComponent componentToUse = null;
+        ROS2Node nodeToUse = null;
 
         lock (readingsMutex)
         {
-            if (newReadings && publisher != null && publishing)
+            if (newReadings && publisher != null && publishing && ros2Node != null && !ros2Node.IsDisposed)
             {
                 readingToPublish = readings;
                 newReadings = false;
+                publisherToUse = publisher;
+                componentToUse = ros2UnityComponent;
+                nodeToUse = ros2Node;
             }
         }
 
-        if (readingToPublish == null || ros2UnityComponent == null || !ros2UnityComponent.Ok())
+        if (readingToPublish == null || componentToUse == null || nodeToUse == null || !componentToUse.Ok())
         {
             return;
         }
 
-        MessageWithHeader readingsHeader = readingToPublish as MessageWithHeader;
-        ros2Node.clock.UpdateROSTimestamp(ref readingsHeader);
-        publisher.Publish(readingToPublish);
+        MessageWithHeader readingsHeader = readingToPublish;
+        if (!nodeToUse.TryUpdateROSTimestamp(ref readingsHeader))
+        {
+            UnregisterExecutable();
+            return;
+        }
+        publisherToUse.Publish(readingToPublish);
     }
 
     /// <summary>
@@ -182,7 +192,8 @@ public abstract class Sensor<T> : ISensor where T : MessageWithHeader, new()
 
     private void UpdateReadingOnMainThread()
     {
-        if (!publishing || publisher == null || ros2UnityComponent == null || !ros2UnityComponent.Ok())
+        if (!publishing || publisher == null || ros2Node == null || ros2Node.IsDisposed ||
+            ros2UnityComponent == null || !ros2UnityComponent.Ok())
         {
             return;
         }
@@ -217,23 +228,44 @@ public abstract class Sensor<T> : ISensor where T : MessageWithHeader, new()
         CalculateFrameTime();
     }
 
-    protected virtual void OnDisable()
+    void OnDisable()
     {
         UnregisterExecutable();
+        OnSensorDisable();
     }
 
-    protected virtual void OnDestroy()
+    void OnDestroy()
     {
         UnregisterExecutable();
+        OnSensorDestroy();
+    }
+
+    protected virtual void OnSensorDisable()
+    {
+    }
+
+    protected virtual void OnSensorDestroy()
+    {
     }
 
     private void UnregisterExecutable()
     {
-        if (ros2UnityComponent != null)
+        ROS2UnityComponent componentToUnregister = null;
+        lock (readingsMutex)
         {
-            ros2UnityComponent.UnregisterExecutable(ExecutorThreadSensorPublishAction);
+            componentToUnregister = ros2UnityComponent;
             ros2UnityComponent = null;
+            ros2Node = null;
+            publisher = null;
+            readings = null;
+            newReadings = false;
         }
+
+        if (componentToUnregister != null)
+        {
+            componentToUnregister.UnregisterExecutable(ExecutorThreadSensorPublishAction);
+        }
+
         publishing = false;
     }
 
