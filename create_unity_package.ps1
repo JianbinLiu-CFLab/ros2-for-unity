@@ -13,15 +13,15 @@
 .PARAMETER output_dir
     output file directory
 #>
-$ErrorActionPreference = 'Stop'
-Set-StrictMode -Version Latest
-
 Param (
     [Parameter(Mandatory=$true)][string]$unity_path,
     [Parameter(Mandatory=$false)][string]$input_asset,
     [Parameter(Mandatory=$false)][string]$package_name="Ros2ForUnity",
     [Parameter(Mandatory=$false)][string]$output_dir
 )
+
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
 
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
 $temp_dir = $Env:TEMP
