@@ -2,10 +2,10 @@
 #
 # Modifications by Jianbin Liu:
 # - Pointed the ros2cs dependency to the JianbinLiu-CFLab fork.
-# - Pinned ros2cs to the verified Jazzy/lifecycle fix commit.
+# - Pointed ros2cs to the JianbinLiu-CFLab mainline carrying the verified Jazzy/lifecycle fixes.
 #
 repositories:
   src/ros2cs/:
     type: git
     url:     https://github.com/JianbinLiu-CFLab/ros2cs.git
-    version: 04b8efec50e55f441f3d2973ce24e69db8de64fa
+    version: main
