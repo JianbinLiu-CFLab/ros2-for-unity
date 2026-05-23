@@ -1,6 +1,12 @@
+# Modifications Copyright (c) 2026 Jianbin Liu.
+#
+# Modifications by Jianbin Liu:
+# - Ignored the local .tmp workspace scratch directory.
+#
 install
 log
 build
+.tmp
 .idea
 src/ros2cs
 **/metadata*.xml

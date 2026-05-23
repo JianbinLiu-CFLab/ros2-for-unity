@@ -1,5 +1,11 @@
+# Modifications Copyright (c) 2026 Jianbin Liu.
+#
+# Modifications by Jianbin Liu:
+# - Pointed the ros2cs dependency to the JianbinLiu-CFLab fork.
+# - Pinned ros2cs to the verified Jazzy/lifecycle fix commit.
+#
 repositories:
   src/ros2cs/:
     type: git
-    url:     https://github.com/RobotecAI/ros2cs.git
-    version: feature/jazzy-support
+    url:     https://github.com/JianbinLiu-CFLab/ros2cs.git
+    version: 04b8efec50e55f441f3d2973ce24e69db8de64fa
