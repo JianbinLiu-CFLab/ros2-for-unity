@@ -35,12 +35,14 @@ Current local maintenance evidence is centered on Windows 10 LTSC + ROS 2 Jazzy.
 Verified on the current maintenance line:
 
 - Build GREEN: Windows-native Jazzy standalone asset build through `build.ps1`, using the canonical `ros2cs` workspace and documented short-path Windows layout.
-- Artifact candidate: `Ros2ForUnity_jazzy_standalone_windows_x86_64.zip` with SHA256 `22baf2b624b0fb171efc94b403876491a66e57b39b6f747a3c2e30644ce32188`.
-- Unity Load GREEN: Unity `6000.3.14f1` imports the artifact in a fresh project, compiles scripts, loads key native dependencies, initializes `ROS2UnityCore`, and shuts down cleanly.
+- Latest release: [`v0.2.0-jazzy-win64-preview.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.2.0-jazzy-win64-preview.1).
+- Artifact: `Ros2ForUnity_jazzy_standalone_windows_x86_64.zip` with SHA256 `497a245edbaff247f4c428d4f131a8c1d93c5be2fc6d763cb1e4624586c67e82`.
+- Managed/native regression signal: `ros2cs_tests` reports 77 NUnit tests passed, 0 failed, 0 skipped.
 
 Not yet claimed:
 
-- Runtime Smoke GREEN: runtime pub/sub, service/client, graph discovery, sensor scene behavior, and repeated Play/Stop still need dedicated Unity-side validation.
+- Unity Load GREEN for the latest `v0.2.0` artifact: the prior Unity Load route is known, but this refreshed runtime artifact should be re-imported and rechecked before upgrading the claim.
+- Runtime Smoke GREEN: runtime pub/sub, service/client, graph discovery, sensor scene behavior, and repeated Play/Stop still need dedicated Unity-side validation on the refreshed artifact.
 - Product GREEN: Player export, release signing, deterministic artifact packaging, and broader scenario validation are still later gates.
 
 Test coverage note: current R2FU validation intentionally uses `ros2cs_tests` as the managed/native binding regression signal. Full upstream ROS interface package test sweeps are not claimed here.
@@ -73,7 +75,12 @@ This asset can be prepared in two flavours:
 
 ## Releases
 
-RobotecAI pre-built [releases](https://github.com/RobotecAI/ros2-for-unity/releases) remain useful historical artifacts for their original supported ROS 2 and Unity versions. For this fork's Jazzy maintenance line, build from this repository until fork-specific releases are published.
+RobotecAI pre-built [releases](https://github.com/RobotecAI/ros2-for-unity/releases) remain useful historical artifacts for their original supported ROS 2 and Unity versions.
+
+For this fork's Jazzy Windows maintenance line, use the JianbinLiu-CFLab releases:
+
+- latest: [`v0.2.0-jazzy-win64-preview.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.2.0-jazzy-win64-preview.1)
+- previous: [`v0.1.0-jazzy-win64-preview.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.1.0-jazzy-win64-preview.1)
 
 ## Building
 

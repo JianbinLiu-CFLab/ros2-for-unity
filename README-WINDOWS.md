@@ -13,20 +13,22 @@ OS:        Windows 10 LTSC
 ROS 2:     Jazzy
 RMW:       rmw_fastrtps_cpp
 Unity:     6000.3.14f1
-R2FU:      a92a1a6
-ros2cs:    65db989
+R2FU:      d671f6a
+ros2cs:    d032edb
 Artifact:  Ros2ForUnity_jazzy_standalone_windows_x86_64.zip
-SHA256:    22baf2b624b0fb171efc94b403876491a66e57b39b6f747a3c2e30644ce32188
+Release:   v0.2.0-jazzy-win64-preview.1
+SHA256:    497a245edbaff247f4c428d4f131a8c1d93c5be2fc6d763cb1e4624586c67e82
 ```
 
 Validated gates:
 
 - Windows-native standalone build through `build.ps1`.
 - Standalone artifact packaging.
-- Unity Load smoke in a fresh Unity project.
+- `ros2cs_tests`: 77 NUnit tests passed, 0 failed, 0 skipped.
 
 Not yet validated by this snapshot:
 
+- Unity Load smoke for the refreshed `v0.2.0` artifact.
 - Runtime pub/sub or service/client smoke.
 - ROS graph discovery stability.
 - Sensor runtime behavior in a real scene.
