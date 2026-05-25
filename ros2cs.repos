@@ -4,9 +4,10 @@
 # - Pointed the ros2cs dependency to the JianbinLiu-CFLab fork.
 # - Pointed ros2cs to the JianbinLiu-CFLab mainline carrying the verified Jazzy/lifecycle fixes.
 # - Pinned the dependency to a verified ros2cs mainline commit for reproducible public builds.
+# - Updated the pin to include the rosidl_python path-length root-cause fix.
 #
 repositories:
   src/ros2cs/:
     type: git
     url:     https://github.com/JianbinLiu-CFLab/ros2cs.git
-    version: 5f6556628328e1a420577315842f9ae81448d9b0
+    version: 01a44c8f07883c7aa2bbf9ed18b59b1993ef862b
