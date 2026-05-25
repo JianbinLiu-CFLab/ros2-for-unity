@@ -48,6 +48,10 @@ internal class PostInstall : IPostprocessBuildWithReport
                 report.summary.outputPath);
         }
         var execFilename = Path.GetFileNameWithoutExtension(report.summary.outputPath);
+        var dataDir = outputDir + "/" + execFilename + "_Data";
+        var pluginsDir = dataDir + "/Plugins";
+        Directory.CreateDirectory(dataDir);
+        Directory.CreateDirectory(pluginsDir);
         if (!File.Exists(r2fuMeta) || !File.Exists(r2csMeta)) {
             throw new FileNotFoundException(
                 "Cannot copy ROS2 metadata after build. Missing source: " +
@@ -55,10 +59,10 @@ internal class PostInstall : IPostprocessBuildWithReport
         }
 
         FileUtil.CopyFileOrDirectory(
-            r2fuMeta, outputDir + "/" + execFilename + "_Data/" + r2fuMetadataName);
+            r2fuMeta, dataDir + "/" + r2fuMetadataName);
         if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.StandaloneLinux64) {
             FileUtil.CopyFileOrDirectory(
-                r2csMeta, outputDir + "/" + execFilename + "_Data/Plugins/" + r2csMetadataName);
+                r2csMeta, pluginsDir + "/" + r2csMetadataName);
 
             // Copy versioned libraries (Unity skips them)
             Regex soWithVersionReg = new Regex(@".*\.so(\.[0-9]+)+$");
@@ -67,11 +71,13 @@ internal class PostInstall : IPostprocessBuildWithReport
                                     .ToList();
             foreach (var libPath in versionedLibs) {
                 FileUtil.CopyFileOrDirectory(
-                    libPath, outputDir + "/" + execFilename + "_Data/Plugins/" + Path.GetFileName(libPath));
+                    libPath, pluginsDir + "/" + Path.GetFileName(libPath));
             }
         } else {
+            var windowsPluginsDir = pluginsDir + "/x86_64";
+            Directory.CreateDirectory(windowsPluginsDir);
             FileUtil.CopyFileOrDirectory(
-                r2csMeta, outputDir + "/" + execFilename + "_Data/Plugins/x86_64/" + r2csMetadataName);
+                r2csMeta, windowsPluginsDir + "/" + r2csMetadataName);
         }
     }
 
