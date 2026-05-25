@@ -1,4 +1,5 @@
 // Copyright 2019-2021 Robotec.ai.
+// Modifications Copyright (c) 2026 Jianbin Liu.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +22,17 @@ namespace ROS2
 /// </summary>
 public static class Transformations
 {
+    /// <summary>
+    /// Constant Unity-to-ROS coordinate transform matrix.
+    /// Unity uses x-right, y-up, z-forward; ROS uses x-forward, y-left, z-up.
+    /// </summary>
+    public static readonly Matrix4x4 Unity2RosMatrix = new Matrix4x4(
+        new Vector4( 0.0f, 0.0f, 1.0f, 0.0f),
+        new Vector4(-1.0f, 0.0f, 0.0f, 0.0f),
+        new Vector4( 0.0f, 1.0f, 0.0f, 0.0f),
+        new Vector4( 0.0f, 0.0f, 0.0f, 1.0f)
+    ).transpose;
+
     public static Vector3 Ros2Unity(this Vector3 vector3)
     {
         return new Vector3(-vector3.y, vector3.z, vector3.x);
@@ -73,14 +85,7 @@ public static class Transformations
 
     public static Matrix4x4 Unity2RosMatrix4x4()
     {
-        // Note: The matrix here is written as-if on paper,
-        // but Unity's Matrix4x4 is constructed from column-vectors, hence the transpose.
-        return new Matrix4x4(
-            new Vector4( 0.0f, 0.0f, 1.0f, 0.0f),
-            new Vector4(-1.0f, 0.0f, 0.0f, 0.0f),
-            new Vector4( 0.0f, 1.0f, 0.0f, 0.0f),
-            new Vector4( 0.0f, 0.0f, 0.0f, 1.0f)
-        ).transpose;
+        return Unity2RosMatrix;
     }
 }
 

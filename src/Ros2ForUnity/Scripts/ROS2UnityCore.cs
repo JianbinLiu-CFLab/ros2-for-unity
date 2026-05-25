@@ -25,10 +25,8 @@ namespace ROS2
     /// <summary>
     /// The principal class for handling ros2 nodes and executables.
     /// Use this to create ros2 node, check ros2 status.
-    /// Spins and executes actions (e. g. clock, sensor publish triggers) in a dedicated thread
-    /// TODO: this is meant to be used as a one-of (a singleton). Enforce. However, things should work
-    /// anyway with more than one since the underlying library can handle multiple init and shutdown calls,
-    /// and does node name uniqueness check independently.
+    /// Spins and executes actions (e. g. clock, sensor publish triggers) in a dedicated thread.
+    /// Multiple core instances are expected to work because the underlying ROS2 layer reference-counts init/shutdown.
     /// </summary>
     public class ROS2UnityCore : IDisposable
     {
@@ -40,7 +38,7 @@ namespace ROS2
         private bool disposed = false;
         private Thread executorThread;
         private int interval = 2;  // Spinning / executor interval in ms
-        private object mutex = new object();
+        private readonly object mutex = new object();
         private double spinTimeout = 0.0001;
 
         public bool Ok()
@@ -53,6 +51,7 @@ namespace ROS2
 
         public ROS2UnityCore()
         {
+            Thread threadToStart = null;
             lock (mutex)
             {
                 ros2forUnity = new ROS2ForUnity();
@@ -62,8 +61,9 @@ namespace ROS2
 
                 executorThread = new Thread(() => Tick());
                 executorThread.IsBackground = true;
-                executorThread.Start();
+                threadToStart = executorThread;
             }
+            threadToStart.Start();
         }
 
         public ROS2Node CreateNode(string name)
@@ -198,6 +198,9 @@ namespace ROS2
             }
         }
 
+        /// <summary>
+        /// Compatibility alias for older callers; new code should call Dispose().
+        /// </summary>
         public void DestroyNow()
         {
             Dispose();

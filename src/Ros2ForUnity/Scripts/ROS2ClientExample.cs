@@ -31,6 +31,7 @@ public class ROS2ClientExample : MonoBehaviour
     private ROS2Node ros2Node;
     private IClient<addTwoIntsReq, addTwoIntsResp> addTwoIntsClient;
     private bool isRunning = false;
+    private int runningCoroutines = 0;
     private Task<addTwoIntsResp> asyncTask;
 
     IEnumerator periodicAsyncCall()
@@ -99,6 +100,7 @@ public class ROS2ClientExample : MonoBehaviour
             addTwoIntsReq request = new addTwoIntsReq();
             request.A = Random.Range(0, 100);
             request.B = Random.Range(0, 100);
+            // Example-only synchronous call. Production Unity code should prefer CallAsync to avoid blocking frames.
             var response = addTwoIntsClient.Call(request);
 
             Debug.Log("Got sync answer " + response.Sum);
@@ -138,10 +140,28 @@ public class ROS2ClientExample : MonoBehaviour
             isRunning = true;
 
             // Async calls
-            StartCoroutine(periodicAsyncCall());
+            StartCoroutine(RunTracked(periodicAsyncCall()));
 
             // Sync calls
-            StartCoroutine(periodicCall());
+            StartCoroutine(RunTracked(periodicCall()));
+        }
+    }
+
+    private IEnumerator RunTracked(IEnumerator routine)
+    {
+        runningCoroutines++;
+        try
+        {
+            yield return StartCoroutine(routine);
+        }
+        finally
+        {
+            runningCoroutines--;
+            if (runningCoroutines <= 0)
+            {
+                runningCoroutines = 0;
+                isRunning = false;
+            }
         }
     }
 }

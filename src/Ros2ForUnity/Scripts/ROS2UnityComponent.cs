@@ -25,10 +25,8 @@ namespace ROS2
 /// <summary>
 /// The principal MonoBehaviour class for handling ros2 nodes and executables.
 /// Use this to create ros2 node, check ros2 status.
-/// Spins and executes actions (e. g. clock, sensor publish triggers) in a dedicated thread
-/// TODO: this is meant to be used as a one-of (a singleton). Enforce. However, things should work
-/// anyway with more than one since the underlying library can handle multiple init and shutdown calls,
-/// and does node name uniqueness check independently.
+/// Spins and executes actions (e. g. clock, sensor publish triggers) in a dedicated thread.
+/// Multiple component instances are expected to work because the underlying ROS2 layer reference-counts init/shutdown.
 /// </summary>
 public class ROS2UnityComponent : MonoBehaviour
 {
@@ -41,7 +39,7 @@ public class ROS2UnityComponent : MonoBehaviour
     private bool disposed = false;
     private Thread executorThread;
     private int interval = 2;  // Spinning / executor interval in ms
-    private object mutex = new object();
+    private readonly object mutex = new object();
     private double spinTimeout = 0.0001;
 
     public bool Ok()
@@ -219,6 +217,7 @@ public class ROS2UnityComponent : MonoBehaviour
 
     private void StartExecutor()
     {
+        Thread threadToStart = null;
         lock (mutex)
         {
             if (initialized || disposed)
@@ -230,8 +229,9 @@ public class ROS2UnityComponent : MonoBehaviour
             executorThread = new Thread(() => Tick());
             executorThread.IsBackground = true;
             initialized = true;
-            executorThread.Start();
+            threadToStart = executorThread;
         }
+        threadToStart.Start();
     }
 
     private void StopExecutor()

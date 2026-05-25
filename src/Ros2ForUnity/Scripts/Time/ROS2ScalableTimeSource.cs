@@ -30,9 +30,9 @@ public class ROS2ScalableTimeSource : ITimeSource, IDisposable
   private int mainThreadId;
   private double lastReadingSecs;
   private ROS2.Clock clock;
-  private double initialTime = 0;
+  private double rosUnityTimeOffset = 0;
   private double initialTimeScale = 0;
-  private bool initialTimeAcquired = false;
+  private bool rosUnityTimeOffsetAcquired = false;
   private bool initialTimeScaleAcquired = false;
   private bool timeScaleChanged = false;
 
@@ -79,12 +79,12 @@ public class ROS2ScalableTimeSource : ITimeSource, IDisposable
       double adjustedTime;
       lock (mutex)
       {
-        if (!initialTimeAcquired)
+        if (!rosUnityTimeOffsetAcquired)
         {
-          initialTimeAcquired = true;
-          initialTime = rosNow - readingSecs;
+          rosUnityTimeOffsetAcquired = true;
+          rosUnityTimeOffset = rosNow - readingSecs;
         }
-        adjustedTime = readingSecs + initialTime;
+        adjustedTime = readingSecs + rosUnityTimeOffset;
       }
       TimeUtils.TimeFromTotalSeconds(adjustedTime, out seconds, out nanoseconds);
     }
@@ -114,6 +114,7 @@ public class ROS2ScalableTimeSource : ITimeSource, IDisposable
 
       if (initialTimeScale != Time.timeScale)
       {
+        // Once scaling has changed, keep using the adjusted timeline to avoid jumping back to system time.
         timeScaleChanged = true;
       }
 

@@ -222,8 +222,8 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
     /// </summary>
     void Awake()
     {
-        // turn on publishing on start
-        publishing = true;
+        // Publishing starts only after CreateROSParticipants creates a real ROS publisher.
+        publishing = false;
         CalculateFrameTime();
     }
 

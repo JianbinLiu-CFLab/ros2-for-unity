@@ -35,6 +35,7 @@ internal class ROS2ForUnity : IDisposable
     private static int referenceCount = 0;
     private static bool pathConfigured = false;
     private static string ros2ForUnityAssetFolderName = "Ros2ForUnity";
+    private static readonly List<string> supportedVersions = new List<string>() { "foxy", "galactic", "humble", "jazzy", "rolling" };
     private static ConsoleCancelEventHandler consoleCancelHandler;
 #if UNITY_EDITOR
     private static bool editorHandlersRegistered = false;
@@ -80,7 +81,7 @@ internal class ROS2ForUnity : IDisposable
         }
     }
     
-    private string GetEnvPathVariableName()
+    private static string GetEnvPathVariableName()
     {
       string envVariable = "LD_LIBRARY_PATH";
       if (GetOS() == Platform.Windows)
@@ -90,7 +91,7 @@ internal class ROS2ForUnity : IDisposable
       return envVariable;
     }
 
-    private string GetEnvPathVariableValue()
+    private static string GetEnvPathVariableValue()
     {
         return Environment.GetEnvironmentVariable(GetEnvPathVariableName());
     }
@@ -112,7 +113,11 @@ internal class ROS2ForUnity : IDisposable
         char separator = Path.DirectorySeparatorChar;
         string ros2ForUnityPath = GetRos2ForUnityPath();
         string pluginPath = ros2ForUnityPath;
-        
+
+        // Editor: Assets/Ros2ForUnity/Plugins/<OS>/x86_64
+        // Windows Player: <App>_Data/Plugins/x86_64
+        // Linux Player: <App>_Data/Plugins
+
         pluginPath += separator + "Plugins";
         
         if (InEditor()) {
@@ -141,7 +146,7 @@ internal class ROS2ForUnity : IDisposable
     /// is effective for this process, however rmw implementation's dependencies itself are loaded by dynamic linker 
     /// anyway so setting it for Linux is pointless.
     /// </description>
-    private void SetEnvPathVariable()
+    private static void SetEnvPathVariable()
     {
         string currentPath = GetEnvPathVariableValue();
         string pluginPath = GetPluginPath();
@@ -238,7 +243,6 @@ internal class ROS2ForUnity : IDisposable
     /// </summary>
     private void CheckROSSupport(string ros2Codename)
     {
-        List<string> supportedVersions = new List<string>() { "foxy", "galactic", "humble", "jazzy", "rolling" };
         var supportedVersionsString = String.Join(", ", supportedVersions);
         if (string.IsNullOrEmpty(ros2Codename))
         {
@@ -337,15 +341,17 @@ internal class ROS2ForUnity : IDisposable
         char separator = Path.DirectorySeparatorChar;
         try
         {
-            ros2csMetadata.Load(GetPluginPath() + separator + "metadata_ros2cs.xml");
-            ros2ForUnityMetadata.Load(GetRos2ForUnityPath() + separator + "metadata_ros2_for_unity.xml");
+            string ros2csMetadataPath = GetPluginPath() + separator + "metadata_ros2cs.xml";
+            string ros2ForUnityMetadataPath = GetRos2ForUnityPath() + separator + "metadata_ros2_for_unity.xml";
+            ros2csMetadata.Load(ros2csMetadataPath);
+            ros2ForUnityMetadata.Load(ros2ForUnityMetadataPath);
         }
-        catch (System.IO.FileNotFoundException)
+        catch (System.IO.FileNotFoundException e)
         {
 #if UNITY_EDITOR
-            var errMessage = "Could not find metadata files.";
+            var errMessage = "Could not find metadata files: " + e.Message;
             EditorApplication.isPlaying = false;
-            throw new System.IO.FileNotFoundException(errMessage);
+            throw new System.IO.FileNotFoundException(errMessage, e);
 #else
             const int NO_METADATA = 1;
             Application.Quit(NO_METADATA);

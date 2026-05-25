@@ -163,14 +163,15 @@ public class ROS2Node : IDisposable
     public Subscription<T> CreateSubscription<T>(string topicName, Action<T> callback,
         QualityOfServiceProfile qos = null) where T : Message, new()
     {
-        if (qos == null)
+        if (qos != null)
         {
-            using (QualityOfServiceProfile defaultQos = new QualityOfServiceProfile(QosPresetProfile.DEFAULT))
-            {
-                return WithLiveNode("create subscription", liveNode => liveNode.CreateSubscription<T>(topicName, callback, defaultQos));
-            }
+            return WithLiveNode("create subscription", liveNode => liveNode.CreateSubscription<T>(topicName, callback, qos));
         }
-        return WithLiveNode("create subscription", liveNode => liveNode.CreateSubscription<T>(topicName, callback, qos));
+
+        using (QualityOfServiceProfile defaultQos = new QualityOfServiceProfile(QosPresetProfile.DEFAULT))
+        {
+            return WithLiveNode("create subscription", liveNode => liveNode.CreateSubscription<T>(topicName, callback, defaultQos));
+        }
     }
 
 
@@ -179,9 +180,14 @@ public class ROS2Node : IDisposable
     /// </summary>
     /// <returns>The whether subscription was found (e. g. false if removed earlier elsewhere) </returns>
     /// <param name="subscription">subscrition to remove, returned from CreateSubscription</param>
-    public bool RemoveSubscription<T>(ISubscriptionBase subscription)
+    public bool RemoveSubscription(ISubscriptionBase subscription)
     {
         return WithLiveNode("remove subscription", liveNode => liveNode.RemoveSubscription(subscription));
+    }
+
+    public bool RemoveSubscription<T>(ISubscriptionBase subscription)
+    {
+        return RemoveSubscription(subscription);
     }
 
     /// <summary>
@@ -189,9 +195,14 @@ public class ROS2Node : IDisposable
     /// </summary>
     /// <returns>The whether publisher was found (e. g. false if removed earlier elsewhere) </returns>
     /// <param name="publisher">publisher to remove, returned from CreatePublisher or CreateSensorPublisher</param>
-    public bool RemovePublisher<T>(IPublisherBase publisher)
+    public bool RemovePublisher(IPublisherBase publisher)
     {
         return WithLiveNode("remove publisher", liveNode => liveNode.RemovePublisher(publisher));
+    }
+
+    public bool RemovePublisher<T>(IPublisherBase publisher)
+    {
+        return RemovePublisher(publisher);
     }
 
     /// <inheritdoc cref="INode.CreateService"/>

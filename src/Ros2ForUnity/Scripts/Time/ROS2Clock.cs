@@ -25,6 +25,7 @@ namespace ROS2
 public class ROS2Clock : IDisposable
 {
     private ITimeSource _timeSource;
+    private bool disposed;
 
     public ROS2Clock() : this(new ROS2TimeSource())
     {   // By default, use ROS2TimeSource
@@ -39,7 +40,7 @@ public class ROS2Clock : IDisposable
     {
         int seconds;
         uint nanoseconds;
-        _timeSource.GetTime(out seconds, out nanoseconds);
+        GetCurrentTime(out seconds, out nanoseconds);
         clockMessage.Clock_.Sec = seconds;
         clockMessage.Clock_.Nanosec = nanoseconds;
     }
@@ -48,7 +49,7 @@ public class ROS2Clock : IDisposable
     {
         int seconds;
         uint nanoseconds;
-        _timeSource.GetTime(out seconds, out nanoseconds);
+        GetCurrentTime(out seconds, out nanoseconds);
         time.Sec = seconds;
         time.Nanosec = nanoseconds;
     }
@@ -57,18 +58,33 @@ public class ROS2Clock : IDisposable
     {
         int seconds;
         uint nanoseconds;
-        _timeSource.GetTime(out seconds, out nanoseconds);
+        GetCurrentTime(out seconds, out nanoseconds);
         message.UpdateHeaderTime(seconds, nanoseconds);
+    }
+
+    private void GetCurrentTime(out int seconds, out uint nanoseconds)
+    {
+        if (disposed || _timeSource == null)
+        {
+            throw new ObjectDisposedException(nameof(ROS2Clock));
+        }
+        _timeSource.GetTime(out seconds, out nanoseconds);
     }
 
     public void Dispose()
     {
+        if (disposed)
+        {
+            return;
+        }
+
         IDisposable disposableTimeSource = _timeSource as IDisposable;
         if (disposableTimeSource != null)
         {
             disposableTimeSource.Dispose();
         }
         _timeSource = null;
+        disposed = true;
     }
 }
 

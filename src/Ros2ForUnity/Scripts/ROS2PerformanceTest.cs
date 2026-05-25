@@ -38,6 +38,7 @@ public class ROS2PerformanceTest : MonoBehaviour
     void Start()
     {
         ros2Unity = GetComponent<ROS2UnityComponent>();
+        NormalizeInspectorValues();
         if (Application.isPlaying)
         {
             PrepMessage();
@@ -46,15 +47,15 @@ public class ROS2PerformanceTest : MonoBehaviour
 
     void OnValidate()
     {
-        if (rate < 1)
-        {
-            interval_ms = 0;
-        }
-        else
-        {
-            interval_ms = 1000 / rate;
-        }
+        NormalizeInspectorValues();
         PrepMessage();
+    }
+
+    private void NormalizeInspectorValues()
+    {
+        messageSize = Mathf.Max(1, messageSize);
+        rate = Mathf.Max(1, rate);
+        interval_ms = Mathf.Max(1, 1000 / rate);
     }
 
     private void Publish()
@@ -114,7 +115,10 @@ public class ROS2PerformanceTest : MonoBehaviour
         quitting = true;
         if (publishThread != null && publishThread != Thread.CurrentThread)
         {
-            publishThread.Join(2000);
+            if (!publishThread.Join(2000))
+            {
+                Debug.LogWarning("ROS2PerformanceTest publish thread did not stop within 2 seconds");
+            }
             publishThread = null;
         }
         if (ros2Unity != null && ros2Node != null)
@@ -143,6 +147,7 @@ public class ROS2PerformanceTest : MonoBehaviour
 
     private void PrepMessage()
     {
+        NormalizeInspectorValues();
         uint count = (uint)messageSize; //point per message
         uint fieldsSize = 16;
         uint rowSize = count * fieldsSize;

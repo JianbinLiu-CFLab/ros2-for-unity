@@ -23,7 +23,11 @@ mkdir -p "/home/$(whoami)"
 git config --global --add safe.directory /workdir/ros2-for-unity
 shopt -u dotglob
 
-ln -sfn /workdir/custom_messages /workdir/ros2-for-unity/src/ros2cs/src/custom_messages
+if [ -d /workdir/custom_messages ]; then
+  ln -sfn /workdir/custom_messages /workdir/ros2-for-unity/src/ros2cs/src/custom_messages
+else
+  echo "No /workdir/custom_messages mount found; skipping custom message symlink."
+fi
 
 echo ""
 echo "######################################################################"
@@ -34,5 +38,9 @@ echo "Type './build.sh' to build 'ros2-for-unity'. You will find installed libs 
 echo ""
 echo "######################################################################"
 echo ""
+
+if [ "$#" -gt 0 ]; then
+  exec "$@"
+fi
 
 exec bash

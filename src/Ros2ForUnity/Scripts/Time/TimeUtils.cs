@@ -19,7 +19,7 @@ namespace ROS2
 {
 
 /// <summary>
-/// Interace for acquiring time
+/// Helpers for converting floating-point seconds into ROS time fields.
 /// </summary>
 internal static class TimeUtils
 {
