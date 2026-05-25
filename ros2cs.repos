@@ -9,4 +9,4 @@ repositories:
   src/ros2cs/:
     type: git
     url:     https://github.com/JianbinLiu-CFLab/ros2cs.git
-    version: ee32c8b7d7dacda3f20a67fe0e3cc216c47a0820
+    version: ee32c8bfcea53786b032a81dfee2ce4ac533d46e
