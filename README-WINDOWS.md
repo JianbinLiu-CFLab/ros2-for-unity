@@ -23,9 +23,9 @@ SHA256:    497a245edbaff247f4c428d4f131a8c1d93c5be2fc6d763cb1e4624586c67e82
 Current source release after the latest cleanup fixes:
 
 ```text
-R2FU:      153882f
-ros2cs:    bbd5017
-Release:   v0.3.0-jazzy-win64-preview.1
+R2FU:      v0.4.0-jazzy-win64-preview.1
+ros2cs:    v0.4.0-jazzy-preview.1
+Release:   v0.4.0-jazzy-win64-preview.1
 Artifact:  not uploaded yet; regenerate the standalone zip before attaching release assets
 ```
 
@@ -33,11 +33,11 @@ Validated gates:
 
 - Windows-native standalone build through `build.ps1`.
 - Standalone artifact packaging.
-- `ros2cs_tests`: 77 NUnit tests passed, 0 failed, 0 skipped.
+- `ros2cs_tests`: 82 NUnit tests passed, 0 failed, 0 skipped.
 
 Not yet validated by this snapshot:
 
-- Unity Load smoke for the next regenerated `v0.3.0` artifact.
+- Unity Load smoke for the next regenerated `v0.4.0` artifact.
 - Runtime pub/sub or service/client smoke.
 - ROS graph discovery stability.
 - Sensor runtime behavior in a real scene.
