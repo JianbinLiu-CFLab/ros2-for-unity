@@ -60,7 +60,7 @@ Do not run `colcon build` directly against this repository's `src` directory whe
 
 ### Prerequisites
 
-It is necessary to complete the `ros2cs` Windows prerequisites for the same branch/fork used by this repository. For this maintenance line, `ros2cs.repos` points to the maintained `JianbinLiu-CFLab/ros2cs` `main` branch.
+It is necessary to complete the `ros2cs` Windows prerequisites for the same branch/fork used by this repository. For this maintenance line, `ros2cs.repos` points to the maintained `JianbinLiu-CFLab/ros2cs` preview tag recorded in that file. The `main` branch remains the active integration line, but tagged public builds should use pinned inputs.
 
 ### Steps
 

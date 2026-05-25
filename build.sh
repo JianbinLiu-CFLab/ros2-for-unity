@@ -49,7 +49,6 @@ while [[ $# -gt 0 ]]; do
     -h|--help)
       display_usage
       exit 0
-      shift # past argument
       ;;
     *)
       echo "Unknown option: $1"
@@ -61,9 +60,8 @@ done
 
 if [ "$CLEAN_INSTALL" == 1 ]; then
     echo "Cleaning install directory..."
-    if [ -d "$SCRIPTPATH/install" ]; then
-      rm -rf "$SCRIPTPATH/install"/*
-    fi
+    rm -rf "$SCRIPTPATH/install"
+    mkdir -p "$SCRIPTPATH/install"
 fi
 
 if [ "$STANDALONE" == 1 ]; then
@@ -75,8 +73,11 @@ fi
 if "$SCRIPTPATH/src/ros2cs/build.sh" "${OPTIONS[@]}"; then
     mkdir -p "$SCRIPTPATH/install/asset" && cp -R "$SCRIPTPATH/src/Ros2ForUnity" "$SCRIPTPATH/install/asset/"
     "$SCRIPTPATH/deploy_unity_plugins.sh" "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/"
-    cp "$SCRIPTPATH/src/Ros2ForUnity/metadata_ros2cs.xml" "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/Linux/x86_64/metadata_ros2cs.xml"
-    cp "$SCRIPTPATH/src/Ros2ForUnity/metadata_ros2cs.xml" "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/metadata_ros2cs.xml"
+    for metadata_target in \
+      "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/Linux/x86_64/metadata_ros2cs.xml" \
+      "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/metadata_ros2cs.xml"; do
+      cp "$SCRIPTPATH/src/Ros2ForUnity/metadata_ros2cs.xml" "$metadata_target"
+    done
 else
     echo "Ros2cs build failed!"
     exit 1

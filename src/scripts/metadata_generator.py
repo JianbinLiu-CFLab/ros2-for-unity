@@ -15,7 +15,6 @@
 
 import argparse
 import xml.etree.ElementTree as ET
-from xml.dom import minidom
 import subprocess
 import pathlib
 import os
@@ -38,18 +37,21 @@ def run_git(args, working_directory) -> str:
             ['git'] + args,
             cwd=working_directory,
             stderr=subprocess.STDOUT,
-        ).decode('ascii').strip()
+        ).decode('utf-8', errors='replace').strip()
     except subprocess.CalledProcessError as exc:
         output = exc.output.decode('utf-8', errors='replace').strip()
         raise RuntimeError(f"git {' '.join(args)} failed in {working_directory}: {output}") from exc
 
 def get_ros2_for_unity_root_path() -> pathlib.Path:
+    # metadata_generator.py is expected to live under <repo>/src/scripts.
     return pathlib.Path(__file__).parents[2]
 
 def get_ros2_for_unity_path() -> pathlib.Path:
+    # metadata_generator.py is expected to live under <repo>/src/scripts.
     return pathlib.Path(__file__).parents[1].joinpath("Ros2ForUnity")
 
 def get_ros2cs_path() -> pathlib.Path:
+    # ros2cs is expected beside Ros2ForUnity under <repo>/src.
     return pathlib.Path(__file__).parents[1].joinpath("ros2cs")
 
 def get_ros2_version() -> str:
@@ -88,15 +90,16 @@ def main() -> None:
     ET.SubElement(ros2_cs_version, "date").text = get_commit_date(get_ros2cs_path())
     ET.SubElement(ros2_cs, "standalone").text = str(int(args.standalone))
 
-    rf2u_xmlstr = minidom.parseString(ET.tostring(ros2_for_unity)).toprettyxml(indent="   ")
     metadata_rf2u_file = get_ros2_for_unity_path().joinpath("metadata_ros2_for_unity.xml")
-    with open(str(metadata_rf2u_file), "w", encoding="utf-8") as f:
-        f.write(rf2u_xmlstr)
+    write_metadata_xml(ros2_for_unity, metadata_rf2u_file)
 
-    r2cs_xmlstr = minidom.parseString(ET.tostring(ros2_cs)).toprettyxml(indent="   ")
     metadata_r2cs_file = get_ros2_for_unity_path().joinpath("metadata_ros2cs.xml")
-    with open(str(metadata_r2cs_file), "w", encoding="utf-8") as f:
-        f.write(r2cs_xmlstr)
+    write_metadata_xml(ros2_cs, metadata_r2cs_file)
+
+def write_metadata_xml(root: ET.Element, destination: pathlib.Path) -> None:
+    ET.indent(root, space="   ")
+    tree = ET.ElementTree(root)
+    tree.write(destination, encoding="utf-8", xml_declaration=True)
 
 if __name__ == "__main__":
     main()

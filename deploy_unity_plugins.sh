@@ -4,8 +4,16 @@ set -euo pipefail
 SCRIPT=$(readlink -f "$0")
 SCRIPTPATH=$(dirname "$SCRIPT")
 
-if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
-  echo "Usage:" 
+if [ $# -gt 0 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+  echo "Usage:"
+  echo "deploy_unity_plugins.sh <PLUGINS_DIR>"
+  echo ""
+  echo "PLUGINS_DIR - Ros2ForUnity/Plugins folder."
+  exit 0
+fi
+
+if [ $# -eq 0 ]; then
+  echo "Usage:"
   echo "deploy_unity_plugins.sh <PLUGINS_DIR>"
   echo ""
   echo "PLUGINS_DIR - Ros2ForUnity/Plugins folder."

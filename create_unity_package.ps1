@@ -3,7 +3,7 @@
 .SYNOPSIS
     Creates a 'unitypackage' from an input asset.
 .DESCRIPTION
-    This script screates a temporary Unity project in "%USERPROFILE%\AppData\Local\Temp" directory, copy input asset and makes an unity package out of it. Valid Unity license is required.
+    This script creates a temporary Unity project in "%USERPROFILE%\AppData\Local\Temp" directory, copies the input asset, and makes a unity package out of it. Valid Unity license is required.
 .PARAMETER unity_path
     Unity editor executable path
 .PARAMETER input_asset
@@ -27,11 +27,11 @@ $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
 $temp_dir = $Env:TEMP
 
 if(-Not $PSBoundParameters.ContainsKey('input_asset')) {
-    $input_asset= Join-Path -Path $scriptPath -ChildPath "\install\asset\Ros2ForUnity"
+    $input_asset= Join-Path -Path $scriptPath -ChildPath "install\asset\Ros2ForUnity"
 }
 
 if(-Not $PSBoundParameters.ContainsKey('output_dir')) {
-    $output_dir= Join-Path -Path $scriptPath -ChildPath "\install\unity_package"
+    $output_dir= Join-Path -Path $scriptPath -ChildPath "install\unity_package"
 }
 
 if(-Not (Test-Path -Path "$input_asset")) {
@@ -40,7 +40,7 @@ if(-Not (Test-Path -Path "$input_asset")) {
 }
 
 if(-Not (Test-Path -Path "$output_dir")) {
-    mkdir ${output_dir} | Out-Null
+    New-Item -ItemType Directory -Force -Path $output_dir | Out-Null
 }
 
 if (-Not (Test-Path -Path "$unity_path")) {
@@ -56,7 +56,7 @@ $unity_version = ($unityVersionOutput | Select-Object -First 1).Trim()
 if ($unity_version -match '^[0-9]{4}\.[0-9]*\.[0-9]*[f]?[0-9]*$') {
     Write-Host "Unity editor confirmed."
 } else {
-    while (1) {
+    while ($true) {
         $confirmation = Read-Host "Can't confirm Unity editor. Do you want to force $unity_path as an Unity editor executable? [y]es or [n]o"
         if ($confirmation -eq 'y' -or $confirmation -eq 'Y') {
             break;
@@ -70,12 +70,13 @@ if ($unity_version -match '^[0-9]{4}\.[0-9]*\.[0-9]*[f]?[0-9]*$') {
 Write-Host "Using ${unity_path} editor."
 
 $safe_unity_version = $unity_version -replace '[^A-Za-z0-9._-]', '_'
-$tmp_project_path = Join-Path -Path "$temp_dir" -ChildPath "\ros2cs_unity_project\$safe_unity_version"
+$tmp_project_path = Join-Path -Path "$temp_dir" -ChildPath "ros2cs_unity_project\$safe_unity_version"
 
 # Create temp project
 if(Test-Path -Path "$tmp_project_path") {
     Write-Host "Found existing temporary project for Unity $unity_version."
-    Remove-Item -Path "$tmp_project_path\Assets\*" -Force -Recurse -ErrorAction Ignore
+    Remove-Item -Path "$tmp_project_path\Assets" -Force -Recurse -ErrorAction Ignore
+    New-Item -ItemType Directory -Force -Path "$tmp_project_path\Assets" | Out-Null
 } else {
     Write-Host "Creating Unity temporary project for Unity $unity_version..."
     & "$unity_path" -createProject "$tmp_project_path" -batchmode -quit | Out-Null

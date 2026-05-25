@@ -15,21 +15,27 @@ INSTALL_ROOT - ros2cs install prefix. Defaults to this repository's install dire
 "
 }
 
-if (([string]::IsNullOrEmpty($pluginDir)) -Or $pluginDir -eq "--help" -Or $pluginDir -eq "-h")
+if ($pluginDir -eq "--help" -Or $pluginDir -eq "-h")
+{
+    Print-Help
+    exit 0
+}
+
+if ([string]::IsNullOrEmpty($pluginDir))
 {
     Print-Help
     exit 1
 }
 
 if (Test-Path -Path $pluginDir) {
-    Write-Host "Copying plugins to to: '$pluginDir' ..."
-    Get-ChildItem "$installRoot\lib\dotnet\" -Recurse -Exclude @('*.pdb') | Copy-Item -Destination ${pluginDir}
+    Write-Host "Copying plugins to: '$pluginDir' ..."
+    Get-ChildItem "$installRoot\lib\dotnet\" -File -Exclude @('*.pdb') | Copy-Item -Destination ${pluginDir}
     Write-Host "Plugins copied to: '$pluginDir'" -ForegroundColor Green
     if(-not (Test-Path -Path $pluginDir\Windows\x86_64\)) {
-        mkdir ${pluginDir}\Windows\x86_64\
+        New-Item -ItemType Directory -Force -Path ${pluginDir}\Windows\x86_64\ | Out-Null
     }
     Write-Host "Copying libraries to: '$pluginDir\Windows\x86_64\' ..."
-    Get-ChildItem "$installRoot\bin\" -Recurse -Exclude @('*_py.dll', '*_python.dll') | Copy-Item -Destination ${pluginDir}\Windows\x86_64\
+    Get-ChildItem "$installRoot\bin\" -File -Exclude @('*_py.dll', '*_python.dll') | Copy-Item -Destination ${pluginDir}\Windows\x86_64\
     if(Test-Path -Path "$installRoot\standalone\") {
         Copy-Item -Path "$installRoot\standalone\*.dll" -Destination "${pluginDir}\Windows\x86_64\" -ErrorAction SilentlyContinue
     }

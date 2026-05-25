@@ -9,22 +9,27 @@ if (([string]::IsNullOrEmpty($Env:ROS_DISTRO)))
     exit 1
 }
 
-$ros2cs_repos = Join-Path -Path $scriptPath -ChildPath "\ros2cs.repos"
-$custom_repos = Join-Path -Path $scriptPath -ChildPath "\ros2_for_unity_custom_messages.repos"
+$ros2cs_repos = Join-Path -Path $scriptPath -ChildPath "ros2cs.repos"
+$custom_repos = Join-Path -Path $scriptPath -ChildPath "ros2_for_unity_custom_messages.repos"
 
-Write-Host "========================================="
-Write-Host "* Pulling ros2cs repository:"
-vcs import --input $ros2cs_repos
-if ($LASTEXITCODE -ne 0) { throw "vcs import ros2cs.repos failed with exit code $LASTEXITCODE" }
+Push-Location $scriptPath
+try {
+    Write-Host "========================================="
+    Write-Host "* Pulling ros2cs repository:"
+    vcs import --input $ros2cs_repos
+    if ($LASTEXITCODE -ne 0) { throw "vcs import ros2cs.repos failed with exit code $LASTEXITCODE" }
 
-Write-Host ""
-Write-Host "========================================="
-Write-Host "Pulling custom repositories:"
-vcs import --input $custom_repos
-if ($LASTEXITCODE -ne 0) { throw "vcs import custom messages failed with exit code $LASTEXITCODE" }
+    Write-Host ""
+    Write-Host "========================================="
+    Write-Host "Pulling custom repositories:"
+    vcs import --input $custom_repos
+    if ($LASTEXITCODE -ne 0) { throw "vcs import custom messages failed with exit code $LASTEXITCODE" }
 
-Write-Host ""
-Write-Host "========================================="
-Write-Host "Pulling ros2cs dependencies:"
-& "$scriptPath/src/ros2cs/get_repos.ps1"
-if ($LASTEXITCODE -ne 0) { throw "ros2cs get_repos.ps1 failed with exit code $LASTEXITCODE" }
+    Write-Host ""
+    Write-Host "========================================="
+    Write-Host "Pulling ros2cs dependencies:"
+    & "$scriptPath/src/ros2cs/get_repos.ps1"
+    if ($LASTEXITCODE -ne 0) { throw "ros2cs get_repos.ps1 failed with exit code $LASTEXITCODE" }
+} finally {
+    Pop-Location
+}

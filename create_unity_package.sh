@@ -7,7 +7,7 @@ SCRIPTPATH=$(dirname "$SCRIPT")
 display_usage() {
   echo "This script creates a temporary Unity project in '/tmp' directory, copy input asset and makes an unity package out of it. Valid Unity license is required."
   echo ""
-  echo "Usage:" 
+  echo "Usage:"
   echo "create_unity_package.sh -u <UNITY_PATH> -i [INPUT_ASSET] -p [PACKAGE_NAME] -o [OUTPUT_DIR]"
   echo ""
   echo "UNITY_PATH - Unity editor executable path"
@@ -48,7 +48,6 @@ while [[ $# -gt 0 ]]; do
     -h|--help)
       display_usage
       exit 0
-      shift # past argument
       ;;
     *)
       echo "Unknown option: $1"
@@ -78,7 +77,7 @@ if [ -z "$SAFE_UNITY_VERSION" ]; then
 fi
 
 # Test if unity editor is valid
-if [[ $UNITY_VERSION =~ ^[0-9]{4}\.[0-9]*\.[0-9]*[f]?[0-9]*$ ]]; then
+if [[ $UNITY_VERSION =~ ^[0-9]{4}\.[0-9]*\.[0-9]*f?[0-9]*$ ]]; then
     echo "Unity editor confirmed."
 else
     while true; do
@@ -94,11 +93,13 @@ fi
 
 echo "Using \"${UNITY_PATH}\" editor."
 
-TMP_PROJECT_PATH="/tmp/ros2cs_unity_project/$SAFE_UNITY_VERSION"
+TMP_ROOT="${TMPDIR:-/tmp}"
+TMP_PROJECT_PATH="$TMP_ROOT/ros2cs_unity_project/$SAFE_UNITY_VERSION"
 # Create temp project
 if [ -d "$TMP_PROJECT_PATH" ]; then
     echo "Found existing temporary project for Unity $UNITY_VERSION."
-    rm -rf "$TMP_PROJECT_PATH/Assets"/*
+    rm -rf "$TMP_PROJECT_PATH/Assets"
+    mkdir -p "$TMP_PROJECT_PATH/Assets"
 else
   echo "Creating Unity temporary project for Unity $UNITY_VERSION..."
   "$UNITY_PATH" -createProject "$TMP_PROJECT_PATH" -batchmode -quit
@@ -115,6 +116,7 @@ mkdir -p "$OUTPUT_DIR"
 
 # Cleaning up
 echo "Cleaning up temporary project..."
-rm -rf "$TMP_PROJECT_PATH/Assets"/*
+rm -rf "$TMP_PROJECT_PATH/Assets"
+mkdir -p "$TMP_PROJECT_PATH/Assets"
 
 echo "Done!"

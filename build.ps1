@@ -3,7 +3,7 @@
 .SYNOPSIS
     Builds Ros2ForUnity asset
 .DESCRIPTION
-    This script builds Ros2DorUnity asset
+    This script builds Ros2ForUnity asset
 .PARAMETER with_tests
     Build tests
 .PARAMETER standalone
@@ -75,9 +75,9 @@ $ros2csInstallPath = Join-Path -Path $ros2csPath -ChildPath "install"
 $ros2csBuildBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_BUILD_BASE)) { Get-DefaultWorkPath "r2fu_b" } else { $Env:R2FU_ROS2CS_BUILD_BASE }
 $ros2csLogBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_LOG_BASE)) { Get-DefaultWorkPath "r2fu_l" } else { $Env:R2FU_ROS2CS_LOG_BASE }
 $pythonExecutable = if ([string]::IsNullOrEmpty($Env:COLCON_PYTHON_EXECUTABLE)) {
-    Resolve-RequiredCommand "python" "Run this script through D:\ros2unity\tools\Enter-Ros2JazzyEnv.py, or set COLCON_PYTHON_EXECUTABLE."
+    Resolve-RequiredCommand "python" "Run this script from a sourced ROS 2 Jazzy environment, or set COLCON_PYTHON_EXECUTABLE."
 } else { $Env:COLCON_PYTHON_EXECUTABLE }
-$colconExecutable = Resolve-RequiredCommand "colcon" "Run this script through D:\ros2unity\tools\Enter-Ros2JazzyEnv.py so the Jazzy pixi colcon is on PATH."
+$colconExecutable = Resolve-RequiredCommand "colcon" "Run this script from a sourced ROS 2 Jazzy environment so colcon is on PATH."
 
 Write-Host "Building ros2cs from '$ros2csPath' with Ninja/Release..." -ForegroundColor Green
 & $colconExecutable `
@@ -96,12 +96,12 @@ Write-Host "Building ros2cs from '$ros2csPath' with Ninja/Release..." -Foregroun
     "-DPython3_EXECUTABLE:FILEPATH=$pythonExecutable" `
     --no-warn-unused-cli
 if($LASTEXITCODE -eq 0) {
-    md -Force $scriptPath\install\asset | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path -Path $scriptPath -ChildPath "install\asset") | Out-Null
     Copy-Item -Path $scriptPath\src\Ros2ForUnity -Destination $scriptPath\install\asset\ -Recurse -Force
     
-    $plugin_path=Join-Path -Path $scriptPath -ChildPath "\install\asset\Ros2ForUnity\Plugins\"
-    Write-Host "Deploying build to $plugin_path" -ForegroundColor Green
-    & "$scriptPath\deploy_unity_plugins.ps1" $plugin_path $ros2csInstallPath
+    $pluginPath = Join-Path -Path $scriptPath -ChildPath "install\asset\Ros2ForUnity\Plugins"
+    Write-Host "Deploying build to $pluginPath" -ForegroundColor Green
+    & "$scriptPath\deploy_unity_plugins.ps1" $pluginPath $ros2csInstallPath
     if ($LASTEXITCODE -ne 0) {
         throw "deploy_unity_plugins.ps1 failed with exit code $LASTEXITCODE"
     }

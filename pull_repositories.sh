@@ -11,6 +11,7 @@ fi
 
 echo "========================================="
 echo "* Pulling ros2cs repository:"
+cd "$SCRIPTPATH"
 vcs import < "$SCRIPTPATH/ros2cs.repos"
 
 echo ""
@@ -23,4 +24,3 @@ echo "========================================="
 echo "Pulling ros2cs dependencies:"
 cd "$SCRIPTPATH/src/ros2cs"
 ./get_repos.sh
-cd - > /dev/null
