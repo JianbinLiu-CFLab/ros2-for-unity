@@ -1,4 +1,9 @@
 #!/bin/bash
+# Modifications Copyright (c) 2026 Jianbin Liu.
+#
+# Modifications by Jianbin Liu:
+# - Passed the sourced ROS_DISTRO into the Docker build as an explicit build argument.
+
 set -euo pipefail
 
 if [ -z "${ROS_DISTRO:-}" ]; then

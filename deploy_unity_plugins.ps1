@@ -1,6 +1,12 @@
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+# Modifications Copyright (c) 2026 Jianbin Liu.
+#
+# Modifications by Jianbin Liu:
+# - Added fail-fast plugin deployment with an explicit install root.
+# - Made optional standalone-library copies non-fatal when the source directory is absent.
+
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
 $pluginDir = if ($args.Count -gt 0) { $args[0] } else { "" }
 $installRoot = if ($args.Count -gt 1) { $args[1] } else { Join-Path -Path $scriptPath -ChildPath "install" }
@@ -36,6 +42,7 @@ if (Test-Path -Path $pluginDir) {
     }
     Write-Host "Copying libraries to: '$pluginDir\Windows\x86_64\' ..."
     Get-ChildItem "$installRoot\bin\" -File -Exclude @('*_py.dll', '*_python.dll') | Copy-Item -Destination ${pluginDir}\Windows\x86_64\
+    # Standalone/resource outputs are optional; non-standalone builds must still deploy the core plugins.
     if(Test-Path -Path "$installRoot\standalone\") {
         Copy-Item -Path "$installRoot\standalone\*.dll" -Destination "${pluginDir}\Windows\x86_64\" -ErrorAction SilentlyContinue
     }

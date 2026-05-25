@@ -1,3 +1,9 @@
+## Modifications Copyright (c) 2026 Jianbin Liu.
+##
+## Modifications by Jianbin Liu:
+## - Defaulted the container toolchain to Jazzy/.NET 8.
+## - Removed stale apt caches after package installs to keep the image smaller.
+
 ARG ROS2_DISTRO=jazzy
 FROM ros:${ROS2_DISTRO}-ros-base
 

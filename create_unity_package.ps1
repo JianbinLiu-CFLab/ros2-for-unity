@@ -12,6 +12,12 @@
     Unity package name
 .PARAMETER output_dir
     output file directory
+
+Modifications Copyright (c) 2026 Jianbin Liu.
+
+Modifications by Jianbin Liu:
+- Added strict/fail-fast Unity package creation.
+- Sanitized Unity-version-derived temporary paths before filesystem use.
 #>
 Param (
     [Parameter(Mandatory=$true)][string]$unity_path,

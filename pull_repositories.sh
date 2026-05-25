@@ -1,4 +1,10 @@
 #!/bin/bash
+# Modifications Copyright (c) 2026 Jianbin Liu.
+#
+# Modifications by Jianbin Liu:
+# - Updated supported ROS distribution messaging for Humble/Jazzy maintenance.
+# - Made repository imports run from the repository root instead of the caller's current directory.
+
 set -euo pipefail
 
 SCRIPT=$(readlink -f "$0")
@@ -11,6 +17,7 @@ fi
 
 echo "========================================="
 echo "* Pulling ros2cs repository:"
+# Anchor vcs imports at the repository root so callers can run this script from any CWD.
 cd "$SCRIPTPATH"
 vcs import < "$SCRIPTPATH/ros2cs.repos"
 

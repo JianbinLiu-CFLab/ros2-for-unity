@@ -1,4 +1,10 @@
 #!/bin/bash
+# Modifications Copyright (c) 2026 Jianbin Liu.
+#
+# Modifications by Jianbin Liu:
+# - Removed /etc/shadow mounting and kept only passwd/group read-only identity mappings.
+# - Mounted install and custom_messages directories explicitly for local artifact builds.
+
 set -euo pipefail
 
 SCRIPT=$(readlink -f "$0")

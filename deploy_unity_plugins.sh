@@ -1,4 +1,10 @@
 #!/bin/bash
+# Modifications Copyright (c) 2026 Jianbin Liu.
+#
+# Modifications by Jianbin Liu:
+# - Added fail-fast plugin deployment.
+# - Made optional standalone-library copies non-fatal when the source directory is absent.
+
 set -euo pipefail
 
 SCRIPT=$(readlink -f "$0")
@@ -24,6 +30,7 @@ pluginDir=$1
 
 mkdir -p "${pluginDir}/Linux/x86_64/"
 find "$SCRIPTPATH/install/lib/dotnet/" -maxdepth 1 -not -name "*.pdb" -type f -exec cp {} "${pluginDir}" \;
+# Standalone/resource outputs are optional; non-standalone builds must still deploy the core plugins.
 if [ -d "$SCRIPTPATH/install/standalone" ]; then
   find "$SCRIPTPATH/install/standalone" -maxdepth 1 \( -type f -o -type l \) -exec cp -L {} "${pluginDir}/Linux/x86_64/" \;
 fi
