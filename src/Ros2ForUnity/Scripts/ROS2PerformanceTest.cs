@@ -30,7 +30,7 @@ public class ROS2PerformanceTest : MonoBehaviour
     private ROS2UnityComponent ros2Unity;
     private ROS2Node ros2Node;
     private IPublisher<sensor_msgs.msg.PointCloud2> perf_pub;
-    sensor_msgs.msg.PointCloud2 msg;
+    private sensor_msgs.msg.PointCloud2 msg;
     private bool initialized = false;
     private volatile bool quitting = false;
     private Thread publishThread;
@@ -38,7 +38,10 @@ public class ROS2PerformanceTest : MonoBehaviour
     void Start()
     {
         ros2Unity = GetComponent<ROS2UnityComponent>();
-        PrepMessage();
+        if (Application.isPlaying)
+        {
+            PrepMessage();
+        }
     }
 
     void OnValidate()
@@ -65,9 +68,23 @@ public class ROS2PerformanceTest : MonoBehaviour
                     ros2Node = ros2Unity.CreateNode("ros2_unity_performance_test_node");
                     perf_pub = ros2Node.CreateSensorPublisher<sensor_msgs.msg.PointCloud2>("perf_chatter");
                 }
+                if (msg == null)
+                {
+                    PrepMessage();
+                }
 
-                var msgWithHeader = msg as MessageWithHeader;
-                ros2Node.clock.UpdateROSTimestamp(ref msgWithHeader);
+                MessageWithHeader msgWithHeader = msg as MessageWithHeader;
+                if (msgWithHeader == null)
+                {
+                    Debug.LogError("PointCloud2 does not implement MessageWithHeader; cannot publish stamped performance message");
+                    quitting = true;
+                    continue;
+                }
+                if (!ros2Node.TryUpdateROSTimestamp(ref msgWithHeader))
+                {
+                    Thread.Sleep(100);
+                    continue;
+                }
                 perf_pub.Publish(msg);
                 if (interval_ms > 0)
                 {
@@ -100,6 +117,20 @@ public class ROS2PerformanceTest : MonoBehaviour
             publishThread.Join(2000);
             publishThread = null;
         }
+        if (ros2Unity != null && ros2Node != null)
+        {
+            try
+            {
+                ros2Unity.RemoveNode(ros2Node);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogException(e);
+            }
+        }
+        perf_pub = null;
+        ros2Node = null;
+        msg = null;
     }
 
     private void AssignField(ref sensor_msgs.msg.PointField pf, string n, uint off, byte dt, uint count)

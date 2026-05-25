@@ -39,8 +39,9 @@ internal class ROS2ForUnity : IDisposable
 #if UNITY_EDITOR
     private static bool editorHandlersRegistered = false;
 #endif
-    private XmlDocument ros2csMetadata = new XmlDocument();
-    private XmlDocument ros2ForUnityMetadata = new XmlDocument();
+    // Metadata files are local package files; disable external XML resolution defensively.
+    private XmlDocument ros2csMetadata = new XmlDocument { XmlResolver = null };
+    private XmlDocument ros2ForUnityMetadata = new XmlDocument { XmlResolver = null };
     private bool ownsReference = false;
 
     public enum Platform
@@ -175,8 +176,9 @@ internal class ROS2ForUnity : IDisposable
         pathConfigured = true;
     }
 
-    public bool IsStandalone() {
-        return Convert.ToBoolean(Convert.ToInt16(GetMetadataValue(ros2csMetadata, "/ros2cs/standalone")));
+    public bool IsStandalone()
+    {
+        return ParseMetadataBool(GetMetadataValue(ros2csMetadata, "/ros2cs/standalone"), "/ros2cs/standalone");
     }
 
     public string GetROSVersion()
@@ -309,6 +311,25 @@ internal class ROS2ForUnity : IDisposable
         }
 
         return node.InnerText;
+    }
+
+    private bool ParseMetadataBool(string value, string valuePath)
+    {
+        string normalized = value.Trim();
+        if (normalized == "1")
+        {
+            return true;
+        }
+        if (normalized == "0")
+        {
+            return false;
+        }
+        if (bool.TryParse(normalized, out bool parsed))
+        {
+            return parsed;
+        }
+
+        throw new InvalidOperationException("Metadata value is not a boolean: " + valuePath + " = " + value);
     }
 
     private void LoadMetadata() 

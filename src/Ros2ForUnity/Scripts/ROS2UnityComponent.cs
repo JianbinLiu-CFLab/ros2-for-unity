@@ -291,10 +291,6 @@ public class ROS2UnityComponent : MonoBehaviour
 
     private void Shutdown()
     {
-        StopExecutor();
-        DisposeNodes();
-
-        ROS2ForUnity instance = null;
         lock (mutex)
         {
             if (disposed)
@@ -302,7 +298,16 @@ public class ROS2UnityComponent : MonoBehaviour
                 return;
             }
 
+            // Mark shutdown as started before joining/disposing so OnDestroy and OnApplicationQuit cannot race.
             disposed = true;
+        }
+
+        StopExecutor();
+        DisposeNodes();
+
+        ROS2ForUnity instance = null;
+        lock (mutex)
+        {
             instance = ros2forUnity;
             ros2forUnity = null;
             executableActions = null;

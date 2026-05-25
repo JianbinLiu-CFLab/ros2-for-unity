@@ -205,10 +205,6 @@ namespace ROS2
 
         public void Dispose()
         {
-            StopExecutor();
-            DisposeNodes();
-
-            ROS2ForUnity instance = null;
             lock (mutex)
             {
                 if (disposed)
@@ -216,7 +212,16 @@ namespace ROS2
                     return;
                 }
 
+                // Mark disposal as started before joining/disposing to make concurrent Dispose calls idempotent.
                 disposed = true;
+            }
+
+            StopExecutor();
+            DisposeNodes();
+
+            ROS2ForUnity instance = null;
+            lock (mutex)
+            {
                 instance = ros2forUnity;
                 ros2forUnity = null;
                 executableActions = null;
