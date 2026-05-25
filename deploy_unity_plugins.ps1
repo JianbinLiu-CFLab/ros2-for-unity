@@ -6,6 +6,7 @@ Set-StrictMode -Version Latest
 # Modifications by Jianbin Liu:
 # - Added fail-fast plugin deployment with an explicit install root.
 # - Made optional standalone-library copies non-fatal when the source directory is absent.
+# - Replaced PowerShell -Exclude directory filtering with explicit file-name predicates.
 
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
 $pluginDir = if ($args.Count -gt 0) { $args[0] } else { "" }
@@ -35,21 +36,40 @@ if ([string]::IsNullOrEmpty($pluginDir))
 
 if (Test-Path -Path $pluginDir) {
     Write-Host "Copying plugins to: '$pluginDir' ..."
-    Get-ChildItem "$installRoot\lib\dotnet\" -File -Exclude @('*.pdb') | Copy-Item -Destination ${pluginDir}
+    $dotnetDir = Join-Path -Path $installRoot -ChildPath "lib\dotnet"
+    if (-not (Test-Path -LiteralPath $dotnetDir)) {
+        throw "Managed plugin source directory does not exist: $dotnetDir"
+    }
+    Get-ChildItem -LiteralPath $dotnetDir -File |
+        Where-Object { $_.Name -notlike "*.pdb" } |
+        Copy-Item -Destination ${pluginDir} -Force
+
     Write-Host "Plugins copied to: '$pluginDir'" -ForegroundColor Green
-    if(-not (Test-Path -Path $pluginDir\Windows\x86_64\)) {
-        New-Item -ItemType Directory -Force -Path ${pluginDir}\Windows\x86_64\ | Out-Null
+    $windowsPluginDir = Join-Path -Path $pluginDir -ChildPath "Windows\x86_64"
+    if(-not (Test-Path -LiteralPath $windowsPluginDir)) {
+        New-Item -ItemType Directory -Force -Path $windowsPluginDir | Out-Null
     }
-    Write-Host "Copying libraries to: '$pluginDir\Windows\x86_64\' ..."
-    Get-ChildItem "$installRoot\bin\" -File -Exclude @('*_py.dll', '*_python.dll') | Copy-Item -Destination ${pluginDir}\Windows\x86_64\
+    Write-Host "Copying libraries to: '$windowsPluginDir' ..."
+    $binDir = Join-Path -Path $installRoot -ChildPath "bin"
+    if (-not (Test-Path -LiteralPath $binDir)) {
+        throw "Native library source directory does not exist: $binDir"
+    }
+    Get-ChildItem -LiteralPath $binDir -File |
+        Where-Object { $_.Name -notlike "*_py.dll" -and $_.Name -notlike "*_python.dll" } |
+        Copy-Item -Destination $windowsPluginDir -Force
+
     # Standalone/resource outputs are optional; non-standalone builds must still deploy the core plugins.
-    if(Test-Path -Path "$installRoot\standalone\") {
-        Copy-Item -Path "$installRoot\standalone\*.dll" -Destination "${pluginDir}\Windows\x86_64\" -ErrorAction SilentlyContinue
+    $standaloneDir = Join-Path -Path $installRoot -ChildPath "standalone"
+    if(Test-Path -LiteralPath $standaloneDir) {
+        Get-ChildItem -LiteralPath $standaloneDir -File -Filter "*.dll" |
+            Copy-Item -Destination $windowsPluginDir -Force
     }
-    if(Test-Path -Path "$installRoot\resources\") {
-        Copy-Item -Path "$installRoot\resources\*.dll" -Destination "${pluginDir}\Windows\x86_64\" -ErrorAction SilentlyContinue
+    $resourcesDir = Join-Path -Path $installRoot -ChildPath "resources"
+    if(Test-Path -LiteralPath $resourcesDir) {
+        Get-ChildItem -LiteralPath $resourcesDir -File -Filter "*.dll" |
+            Copy-Item -Destination $windowsPluginDir -Force
     }
-    Write-Host "Libraries copied to '${pluginDir}\Windows\x86_64\'" -ForegroundColor Green
+    Write-Host "Libraries copied to '$windowsPluginDir'" -ForegroundColor Green
 } else {
     Write-Host "Plugins directory: '$pluginDir' doesn't exist. Please create it first manually." -ForegroundColor Red
     exit 1
