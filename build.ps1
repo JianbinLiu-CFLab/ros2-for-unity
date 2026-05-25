@@ -10,6 +10,13 @@
     Add ros2 binaries. Currently standalone flag is fixed to true, so there is no way to build without standalone libs. Parameter kept for future releases
 .PARAMETER clean_install
     Makes a clean installation. Removes install dir before deploying
+
+Modifications Copyright (c) 2026 Jianbin Liu.
+
+Modifications by Jianbin Liu:
+- Added strict/fail-fast behavior for Windows builds.
+- Routed ros2cs builds through the canonical ros2cs workspace with short build roots.
+- Preserved standalone asset deployment as the public Windows packaging path.
 #>
 Param (
     [Parameter(Mandatory=$false)][switch]$with_tests=$false,
@@ -68,10 +75,12 @@ if ($LASTEXITCODE -ne 0) {
     throw "metadata_generator.py failed with exit code $LASTEXITCODE"
 }
 
+# Resolve the junction target so colcon builds the canonical ros2cs workspace, not the R2FU src wrapper.
 $ros2csItem = Get-Item "$scriptPath\src\ros2cs" -Force
 $ros2csPath = if ($ros2csItem.Target -and $ros2csItem.Target.Count -gt 0) { $ros2csItem.Target[0] } else { $ros2csItem.FullName }
 $ros2csSourcePath = Join-Path -Path $ros2csPath -ChildPath "src"
 $ros2csInstallPath = Join-Path -Path $ros2csPath -ChildPath "install"
+# Keep generated ROS/MSVC object paths short while allowing CI or local scripts to override the roots.
 $ros2csBuildBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_BUILD_BASE)) { Get-DefaultWorkPath "r2fu_b" } else { $Env:R2FU_ROS2CS_BUILD_BASE }
 $ros2csLogBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_LOG_BASE)) { Get-DefaultWorkPath "r2fu_l" } else { $Env:R2FU_ROS2CS_LOG_BASE }
 $pythonExecutable = if ([string]::IsNullOrEmpty($Env:COLCON_PYTHON_EXECUTABLE)) {

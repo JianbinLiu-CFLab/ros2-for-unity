@@ -1,6 +1,12 @@
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+# Modifications Copyright (c) 2026 Jianbin Liu.
+#
+# Modifications by Jianbin Liu:
+# - Updated supported ROS distribution messaging for Humble/Jazzy maintenance.
+# - Made repository imports run from the repository root instead of the caller's current directory.
+
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
 
 if (([string]::IsNullOrEmpty($Env:ROS_DISTRO)))
@@ -12,6 +18,7 @@ if (([string]::IsNullOrEmpty($Env:ROS_DISTRO)))
 $ros2cs_repos = Join-Path -Path $scriptPath -ChildPath "ros2cs.repos"
 $custom_repos = Join-Path -Path $scriptPath -ChildPath "ros2_for_unity_custom_messages.repos"
 
+# Anchor vcs imports at the repository root so callers can run this script from any CWD.
 Push-Location $scriptPath
 try {
     Write-Host "========================================="

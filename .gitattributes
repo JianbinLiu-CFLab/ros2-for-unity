@@ -1,3 +1,8 @@
+# Modifications Copyright (c) 2026 Jianbin Liu.
+#
+# Modifications by Jianbin Liu:
+# - Enforced LF endings for scripts and Python tooling that run in Unix-like environments.
+
 *.sh text eol=lf
 *.py text eol=lf
 docker/Dockerfile text eol=lf

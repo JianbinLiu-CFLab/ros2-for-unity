@@ -1,4 +1,10 @@
 #!/bin/bash
+# Modifications Copyright (c) 2026 Jianbin Liu.
+#
+# Modifications by Jianbin Liu:
+# - Added strict/fail-fast Unity package creation.
+# - Sanitized Unity-version-derived temporary paths before filesystem use.
+
 set -euo pipefail
 
 SCRIPT=$(readlink -f "$0")

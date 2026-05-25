@@ -1,4 +1,10 @@
 #!/bin/bash
+# Modifications Copyright (c) 2026 Jianbin Liu.
+#
+# Modifications by Jianbin Liu:
+# - Added strict/fail-fast behavior for Linux builds.
+# - Kept Ros2ForUnity asset deployment explicit after ros2cs build completion.
+
 set -euo pipefail
 
 SCRIPT=$(readlink -f "$0")
@@ -70,6 +76,7 @@ else
   python3 "$SCRIPTPATH/src/scripts/metadata_generator.py"
 fi
 
+# Delegate to ros2cs' own build entrypoint so R2FU does not duplicate colcon/toolchain policy.
 if "$SCRIPTPATH/src/ros2cs/build.sh" "${OPTIONS[@]}"; then
     mkdir -p "$SCRIPTPATH/install/asset" && cp -R "$SCRIPTPATH/src/Ros2ForUnity" "$SCRIPTPATH/install/asset/"
     "$SCRIPTPATH/deploy_unity_plugins.sh" "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/"
