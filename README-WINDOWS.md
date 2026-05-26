@@ -94,6 +94,9 @@ It is necessary to complete the `ros2cs` Windows prerequisites for the same bran
     ./build.ps1
     ```
   * You can build with `-clean_install` to make sure your installation directory is cleaned before deploying.
+  * Build scripts print a phase timing summary covering metadata generation, ros2cs build, Unity asset staging, plugin deploy, and metadata copy.
+  * Use `-quiet` to reduce live colcon terminal output while keeping logs under the configured colcon log base. Use `-verbose` to preserve the chatty `console_direct+` output.
+  * Windows standalone deployment validates required managed and native files after copy, including `ros2cs_common.dll`, `ros2cs_core.dll`, `rcl.dll`, and `rmw_implementation.dll`.
 * Unity Asset is ready to import into your Unity project. You can find it in `install/asset/` directory.
 * (optionally) To create `.unitypackage` in `install/unity_package`
   ```powershell
@@ -133,6 +136,8 @@ R2FU_UNITY_LOAD_SMOKE_PASS
 ```
 
 ## Build troubleshooting
+
+- If a standalone build is unexpectedly slow during native DLL copy or artifact staging, check antivirus/Defender real-time scanning first. This repository does not change Defender policy automatically; any exclusions should be a deliberate local or CI-machine decision.
 
 - If you see one of the following errors:
 ><script_name> is not digitally signed

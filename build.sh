@@ -4,11 +4,55 @@
 # Modifications by Jianbin Liu:
 # - Added strict/fail-fast behavior for Linux builds.
 # - Kept Ros2ForUnity asset deployment explicit after ros2cs build completion.
+# - Added phase timing for R2FU wrapper build and deployment steps.
 
 set -euo pipefail
 
 SCRIPT=$(readlink -f "$0")
 SCRIPTPATH=$(dirname "$SCRIPT")
+TIMING_NAMES=()
+TIMING_MS=()
+TOTAL_START_NS=$(date +%s%N)
+
+elapsed_ms() {
+  local start_ns="$1"
+  local end_ns
+  end_ns=$(date +%s%N)
+  echo $(((end_ns - start_ns) / 1000000))
+}
+
+record_timing() {
+  TIMING_NAMES+=("$1")
+  TIMING_MS+=("$2")
+}
+
+print_timing_summary() {
+  local total_ms
+  total_ms=$(elapsed_ms "$TOTAL_START_NS")
+  echo ""
+  echo "Ros2ForUnity build timing summary:"
+  local i
+  for ((i = 0; i < ${#TIMING_NAMES[@]}; i++)); do
+    printf '  %-28s %8.3fs\n' "${TIMING_NAMES[$i]}" "$(awk "BEGIN { print ${TIMING_MS[$i]} / 1000 }")"
+  done
+  printf '  %-28s %8.3fs\n' "total" "$(awk "BEGIN { print $total_ms / 1000 }")"
+}
+
+run_timed() {
+  local name="$1"
+  shift
+  local start_ns
+  local status
+  start_ns=$(date +%s%N)
+  set +e
+  "$@"
+  status=$?
+  set -e
+  record_timing "$name" "$(elapsed_ms "$start_ns")"
+  return "$status"
+}
+
+trap print_timing_summary EXIT
 
 display_usage() {
     echo "Usage: "
@@ -65,26 +109,26 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ "$CLEAN_INSTALL" == 1 ]; then
-    echo "Cleaning install directory..."
-    rm -rf "$SCRIPTPATH/install"
-    mkdir -p "$SCRIPTPATH/install"
+    run_timed "clean install" bash -c "echo 'Cleaning install directory...' && rm -rf \"\$0\" && mkdir -p \"\$0\"" "$SCRIPTPATH/install"
 fi
 
 if [ "$STANDALONE" == 1 ]; then
-  python3 "$SCRIPTPATH/src/scripts/metadata_generator.py" --standalone
+  run_timed "metadata generation" python3 "$SCRIPTPATH/src/scripts/metadata_generator.py" --standalone
 else
-  python3 "$SCRIPTPATH/src/scripts/metadata_generator.py"
+  run_timed "metadata generation" python3 "$SCRIPTPATH/src/scripts/metadata_generator.py"
 fi
 
 # Delegate to ros2cs' own build entrypoint so R2FU does not duplicate colcon/toolchain policy.
-if "$SCRIPTPATH/src/ros2cs/build.sh" "${OPTIONS[@]}"; then
-    mkdir -p "$SCRIPTPATH/install/asset" && cp -R "$SCRIPTPATH/src/Ros2ForUnity" "$SCRIPTPATH/install/asset/"
-    "$SCRIPTPATH/deploy_unity_plugins.sh" "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/"
+if run_timed "ros2cs build" "$SCRIPTPATH/src/ros2cs/build.sh" "${OPTIONS[@]}"; then
+    run_timed "Unity asset staging" bash -c "mkdir -p \"\$1\" && rm -rf \"\$2\" && cp -a \"\$0\" \"\$1/\"" "$SCRIPTPATH/src/Ros2ForUnity" "$SCRIPTPATH/install/asset" "$SCRIPTPATH/install/asset/Ros2ForUnity"
+    run_timed "plugin deploy" "$SCRIPTPATH/deploy_unity_plugins.sh" "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/"
+    metadata_start_ns=$(date +%s%N)
     for metadata_target in \
       "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/Linux/x86_64/metadata_ros2cs.xml" \
       "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/metadata_ros2cs.xml"; do
       cp "$SCRIPTPATH/src/Ros2ForUnity/metadata_ros2cs.xml" "$metadata_target"
     done
+    record_timing "metadata copy" "$(elapsed_ms "$metadata_start_ns")"
 else
     echo "Ros2cs build failed!"
     exit 1
