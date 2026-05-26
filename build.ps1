@@ -12,7 +12,7 @@
     Makes a clean installation. Removes install dir before deploying
 .PARAMETER quiet
     Reduce live colcon console output. Full logs are still written under the configured colcon log base.
-.PARAMETER verbose
+.PARAMETER console_direct
     Preserve the chatty console_direct+ colcon output. This is the default for compatibility.
 
 Modifications Copyright (c) 2026 Jianbin Liu.
@@ -28,7 +28,7 @@ Param (
     [Parameter(Mandatory=$false)][switch]$standalone=$false,
     [Parameter(Mandatory=$false)][switch]$clean_install=$false,
     [Parameter(Mandatory=$false)][switch]$quiet=$false,
-    [Parameter(Mandatory=$false)][switch]$verbose=$false
+    [Parameter(Mandatory=$false)][switch]$console_direct=$false
 )
 
 $ErrorActionPreference = 'Stop'
@@ -95,7 +95,7 @@ function Invoke-RobocopyMirror {
         "/W:1",
         "/NP"
     )
-    if ($quiet -and -not $verbose) {
+    if ($quiet -and -not $console_direct) {
         $robocopyArgs += @("/NFL", "/NDL")
     }
 
@@ -179,7 +179,7 @@ try {
         "--install-base", $ros2csInstallPath,
         "--merge-install"
     )
-    if ($verbose -or -not $quiet) {
+    if ($console_direct -or -not $quiet) {
         $colconArgs += @("--event-handlers", "console_direct+")
     }
     $colconArgs += @(
@@ -193,7 +193,7 @@ try {
     )
 
     Write-Host "Building ros2cs from '$ros2csPath' with Ninja/Release..." -ForegroundColor Green
-    if ($quiet -and -not $verbose) {
+    if ($quiet -and -not $console_direct) {
         Write-Host "Quiet mode: colcon console_direct+ is disabled; inspect logs under '$ros2csLogBase' on failure." -ForegroundColor Yellow
     }
 
