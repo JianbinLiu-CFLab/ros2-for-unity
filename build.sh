@@ -84,7 +84,7 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       ;;
     -s|--standalone)
-      if ! hash patchelf 2>/dev/null ; then
+      if ! command -v patchelf >/dev/null 2>&1 ; then
         echo "Patchelf missing. Standalone build requires patchelf. Install it via apt 'sudo apt install patchelf'."
         exit 1
       fi
@@ -109,7 +109,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ "$CLEAN_INSTALL" == 1 ]; then
-    run_timed "clean install" bash -c "echo 'Cleaning install directory...' && rm -rf \"\$0\" && mkdir -p \"\$0\"" "$SCRIPTPATH/install"
+    run_timed "clean install" bash -c 'echo "Cleaning install directory..." && rm -rf "$1" && mkdir -p "$1"' _ "$SCRIPTPATH/install"
 fi
 
 if [ "$STANDALONE" == 1 ]; then
@@ -120,7 +120,7 @@ fi
 
 # Delegate to ros2cs' own build entrypoint so R2FU does not duplicate colcon/toolchain policy.
 if run_timed "ros2cs build" "$SCRIPTPATH/src/ros2cs/build.sh" "${OPTIONS[@]}"; then
-    run_timed "Unity asset staging" bash -c "mkdir -p \"\$1\" && rm -rf \"\$2\" && cp -a \"\$0\" \"\$1/\"" "$SCRIPTPATH/src/Ros2ForUnity" "$SCRIPTPATH/install/asset" "$SCRIPTPATH/install/asset/Ros2ForUnity"
+    run_timed "Unity asset staging" bash -c 'mkdir -p "$2" && rm -rf "$3" && cp -a "$1" "$2/"' _ "$SCRIPTPATH/src/Ros2ForUnity" "$SCRIPTPATH/install/asset" "$SCRIPTPATH/install/asset/Ros2ForUnity"
     run_timed "plugin deploy" "$SCRIPTPATH/deploy_unity_plugins.sh" "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/"
     metadata_start_ns=$(date +%s%N)
     for metadata_target in \

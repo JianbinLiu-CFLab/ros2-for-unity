@@ -85,7 +85,7 @@ fi
 pluginDir=$1
 
 mkdir -p "${pluginDir}/Linux/x86_64/"
-run_timed "managed DLL deploy" copy_find_batch "$SCRIPTPATH/install/lib/dotnet/" "${pluginDir}" -not -name "*.pdb" -type f
+run_timed "managed DLL deploy" copy_find_batch "$SCRIPTPATH/install/lib/dotnet/" "${pluginDir}" -type f -not -name "*.pdb"
 for required_managed in ros2cs_common.dll ros2cs_core.dll; do
   if [ ! -f "${pluginDir}/${required_managed}" ]; then
     echo "Required deployed managed file is missing: ${pluginDir}/${required_managed}" >&2
@@ -98,7 +98,7 @@ if [ -d "$SCRIPTPATH/install/standalone" ]; then
 fi
 run_timed "native lib deploy" copy_find_batch "$SCRIPTPATH/install/lib/" "${pluginDir}/Linux/x86_64/" \( -type f -o -type l \) -not -name "*_python.so"
 if [ -d "$SCRIPTPATH/install/resources" ]; then
-  run_timed "resource native deploy" copy_find_batch "$SCRIPTPATH/install/resources" "${pluginDir}/Linux/x86_64/" -name "*.so" \( -type f -o -type l \)
+  run_timed "resource native deploy" copy_find_batch "$SCRIPTPATH/install/resources" "${pluginDir}/Linux/x86_64/" \( -type f -o -type l \) -name "*.so"
 fi
 
 managed_count=$(find "${pluginDir}" -maxdepth 1 -type f | wc -l)

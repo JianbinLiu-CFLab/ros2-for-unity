@@ -19,12 +19,12 @@ echo "========================================="
 echo "* Pulling ros2cs repository:"
 # Anchor vcs imports at the repository root so callers can run this script from any CWD.
 cd "$SCRIPTPATH"
-vcs import < "$SCRIPTPATH/ros2cs.repos"
+vcs import --input "$SCRIPTPATH/ros2cs.repos"
 
 echo ""
 echo "========================================="
 echo "Pulling custom repositories:"
-vcs import < "$SCRIPTPATH/ros2_for_unity_custom_messages.repos"
+vcs import --input "$SCRIPTPATH/ros2_for_unity_custom_messages.repos"
 
 echo ""
 echo "========================================="

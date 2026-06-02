@@ -36,13 +36,13 @@ RUN curl -s https://packagecloud.io/install/repositories/dirk-thomas/vcstool/scr
     && apt-get install -y --no-install-recommends python3-vcstool \
     && rm -rf /var/lib/apt/lists/*
 
-ADD entrypoint.sh /entrypoint.sh
-ADD ci_smoke.sh /usr/local/bin/r2fu-ci-smoke
+COPY entrypoint.sh /entrypoint.sh
+COPY ci_smoke.sh /usr/local/bin/r2fu-ci-smoke
 RUN chmod +x /entrypoint.sh /usr/local/bin/r2fu-ci-smoke
 
 # /workdir must be writable for arbitrary host uid/gid mappings used by run_container.sh.
 # Use a sticky world-writable work root instead of recursively chmodding /home.
 RUN mkdir -p /workdir/ros2-for-unity /workdir/cache /workdir/custom_messages \
-    && chmod 1777 /workdir /workdir/cache /workdir/custom_messages
+    && chmod 1777 /workdir /workdir/ros2-for-unity /workdir/cache /workdir/custom_messages
 
 ENTRYPOINT [ "/entrypoint.sh" ]

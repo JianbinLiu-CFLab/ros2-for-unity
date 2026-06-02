@@ -10,6 +10,8 @@ workspace="${1:-${R2FU_WORKDIR:-/workdir/ros2-for-unity}}"
 asset_dir="$workspace/install/asset/Ros2ForUnity"
 plugin_dir="$asset_dir/Plugins"
 native_dir="$plugin_dir/Linux/x86_64"
+ldd_log=$(mktemp "${TMPDIR:-/tmp}/r2fu-ci-smoke-ldd.XXXXXX")
+topic_log=$(mktemp "${TMPDIR:-/tmp}/r2fu-ci-smoke-topic-list.XXXXXX")
 
 source "/opt/ros/$ROS_DISTRO/setup.bash"
 
@@ -41,16 +43,17 @@ require_glob "$native_dir/librmw_implementation.so*" >/dev/null
 require_glob "$native_dir/libyaml*.so*" >/dev/null
 
 echo "Checking native dependency closure with ldd: $rcl_lib"
-ldd "$rcl_lib" | tee /tmp/r2fu-ci-smoke-ldd.txt
-if grep -q "not found" /tmp/r2fu-ci-smoke-ldd.txt; then
+ldd "$rcl_lib" | tee "$ldd_log"
+if grep -q "not found" "$ldd_log"; then
   echo "Native dependency closure has unresolved libraries." >&2
+  echo "ldd log: $ldd_log" >&2
   exit 1
 fi
 
 echo "Checking ROS 2 CLI context availability."
-timeout 30s ros2 topic list >/tmp/r2fu-ci-smoke-topic-list.txt
+timeout 30s ros2 topic list >"$topic_log"
 
 managed_count=$(find "$plugin_dir" -maxdepth 1 -type f | wc -l)
 native_count=$(find "$native_dir" -maxdepth 1 -type f | wc -l)
 
-echo "R2FU_DOCKER_CI_SMOKE_PASS managed=$managed_count native=$native_count rmw=${RMW_IMPLEMENTATION:-unset}"
+echo "R2FU_DOCKER_CI_SMOKE_PASS managed=$managed_count native=$native_count rmw=${RMW_IMPLEMENTATION:-unset} ldd_log=$ldd_log topic_log=$topic_log"

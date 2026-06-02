@@ -76,7 +76,7 @@ if [ ! -d "$INPUT_ASSET" ]; then
 fi
 
 UNITY_VERSION=$("$UNITY_PATH" -version | head -n 1)
-SAFE_UNITY_VERSION=$(echo "$UNITY_VERSION" | tr -c 'A-Za-z0-9._-' '_')
+SAFE_UNITY_VERSION=$(printf '%s' "$UNITY_VERSION" | tr -c 'A-Za-z0-9._-' '_')
 if [ -z "$SAFE_UNITY_VERSION" ]; then
     echo "Cannot derive a safe Unity version path from '$UNITY_VERSION'."
     exit 1
