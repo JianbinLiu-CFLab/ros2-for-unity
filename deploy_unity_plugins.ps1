@@ -1,6 +1,3 @@
-$ErrorActionPreference = 'Stop'
-Set-StrictMode -Version Latest
-
 # Modifications Copyright (c) 2026 Jianbin Liu.
 #
 # Modifications by Jianbin Liu:
@@ -9,9 +6,18 @@ Set-StrictMode -Version Latest
 # - Replaced PowerShell -Exclude directory filtering with explicit file-name predicates.
 # - Added deployment timing and required managed/native file checks.
 
-$scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
-$pluginDir = if ($args.Count -gt 0) { $args[0] } else { "" }
-$installRoot = if ($args.Count -gt 1) { $args[1] } else { Join-Path -Path $scriptPath -ChildPath "install" }
+Param (
+    [Parameter(Mandatory=$false, Position=0)][string]$pluginDir = "",
+    [Parameter(Mandatory=$false, Position=1)][string]$installRoot = ""
+)
+
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+
+$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Definition
+if ([string]::IsNullOrEmpty($installRoot)) {
+    $installRoot = Join-Path -Path $scriptPath -ChildPath "install"
+}
 $script:TimingRows = New-Object System.Collections.Generic.List[object]
 $script:TotalStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
@@ -112,7 +118,7 @@ if ([string]::IsNullOrEmpty($pluginDir))
 }
 
 try {
-    if (Test-Path -Path $pluginDir) {
+    if (Test-Path -LiteralPath $pluginDir) {
         Write-Host "Copying plugins to: '$pluginDir' ..."
         $dotnetDir = Join-Path -Path $installRoot -ChildPath "lib\dotnet"
         if (-not (Test-Path -LiteralPath $dotnetDir)) {

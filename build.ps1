@@ -34,7 +34,7 @@ Param (
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-$scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
+$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $script:TimingRows = New-Object System.Collections.Generic.List[object]
 $script:TotalStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
@@ -132,7 +132,7 @@ function Resolve-RequiredCommand {
 }
 
 try {
-    if(-Not (Test-Path -Path "$scriptPath\src\ros2cs")) {
+    if(-Not (Test-Path -LiteralPath "$scriptPath\src\ros2cs")) {
         throw "Pull repositories with 'pull_repositories.ps1' first."
     }
 
@@ -221,8 +221,11 @@ try {
     }
 
     Invoke-Timed "metadata copy" {
-        Copy-Item -Path $scriptPath\src\Ros2ForUnity\metadata_ros2cs.xml -Destination $scriptPath\install\asset\Ros2ForUnity\Plugins\Windows\x86_64\ -Force
-        Copy-Item -Path $scriptPath\src\Ros2ForUnity\metadata_ros2cs.xml -Destination $scriptPath\install\asset\Ros2ForUnity\Plugins\ -Force
+        $metadataSource = Join-Path -Path $scriptPath -ChildPath "src\Ros2ForUnity\metadata_ros2cs.xml"
+        $metadataWindowsDestination = Join-Path -Path $scriptPath -ChildPath "install\asset\Ros2ForUnity\Plugins\Windows\x86_64"
+        $metadataPluginDestination = Join-Path -Path $scriptPath -ChildPath "install\asset\Ros2ForUnity\Plugins"
+        Copy-Item -LiteralPath $metadataSource -Destination $metadataWindowsDestination -Force
+        Copy-Item -LiteralPath $metadataSource -Destination $metadataPluginDestination -Force
     }
 }
 finally {

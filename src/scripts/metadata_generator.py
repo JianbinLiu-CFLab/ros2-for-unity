@@ -97,6 +97,7 @@ def main() -> None:
     write_metadata_xml(ros2_cs, metadata_r2cs_file)
 
 def write_metadata_xml(root: ET.Element, destination: pathlib.Path) -> None:
+    # ET.indent requires Python 3.9+; ROS 2 Jazzy's supported Python satisfies this.
     ET.indent(root, space="   ")
     tree = ET.ElementTree(root)
     tree.write(destination, encoding="utf-8", xml_declaration=True)

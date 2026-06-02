@@ -29,7 +29,7 @@ Param (
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-$scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
+$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $temp_dir = $Env:TEMP
 
 if(-Not $PSBoundParameters.ContainsKey('input_asset')) {
@@ -40,16 +40,16 @@ if(-Not $PSBoundParameters.ContainsKey('output_dir')) {
     $output_dir= Join-Path -Path $scriptPath -ChildPath "install\unity_package"
 }
 
-if(-Not (Test-Path -Path "$input_asset")) {
+if(-Not (Test-Path -LiteralPath "$input_asset")) {
     Write-Host "Input asset '$input_asset' doesn't exist! Use 'build.ps1' to build project first." -ForegroundColor Red
     exit 1
 }
 
-if(-Not (Test-Path -Path "$output_dir")) {
+if(-Not (Test-Path -LiteralPath "$output_dir")) {
     New-Item -ItemType Directory -Force -Path $output_dir | Out-Null
 }
 
-if (-Not (Test-Path -Path "$unity_path")) {
+if (-Not (Test-Path -LiteralPath "$unity_path")) {
     throw "Unity editor executable '$unity_path' does not exist."
 }
 
@@ -76,35 +76,44 @@ if ($unity_version -match '^[0-9]{4}\.[0-9]*\.[0-9]*[f]?[0-9]*$') {
 Write-Host "Using ${unity_path} editor."
 
 $safe_unity_version = $unity_version -replace '[^A-Za-z0-9._-]', '_'
+if ([string]::IsNullOrEmpty($safe_unity_version)) {
+    throw "Cannot derive a safe Unity version path from '$unity_version'."
+}
 $tmp_project_path = Join-Path -Path "$temp_dir" -ChildPath "ros2cs_unity_project\$safe_unity_version"
+$unityLogDir = Join-Path -Path "$temp_dir" -ChildPath "ros2cs_unity_project_logs"
+New-Item -ItemType Directory -Force -Path $unityLogDir | Out-Null
+$createProjectLog = Join-Path -Path $unityLogDir -ChildPath "create_$safe_unity_version.log"
+$exportPackageLog = Join-Path -Path $unityLogDir -ChildPath "export_$safe_unity_version.log"
+$assetsPath = Join-Path -Path $tmp_project_path -ChildPath "Assets"
 
 # Create temp project
-if(Test-Path -Path "$tmp_project_path") {
+if(Test-Path -LiteralPath "$tmp_project_path") {
     Write-Host "Found existing temporary project for Unity $unity_version."
-    Remove-Item -Path "$tmp_project_path\Assets" -Force -Recurse -ErrorAction Ignore
-    New-Item -ItemType Directory -Force -Path "$tmp_project_path\Assets" | Out-Null
+    Remove-Item -LiteralPath $assetsPath -Force -Recurse -ErrorAction Ignore
+    New-Item -ItemType Directory -Force -Path $assetsPath | Out-Null
 } else {
     Write-Host "Creating Unity temporary project for Unity $unity_version..."
-    & "$unity_path" -createProject "$tmp_project_path" -batchmode -quit | Out-Null
+    & "$unity_path" -createProject "$tmp_project_path" -batchmode -quit 2>&1 | Tee-Object -FilePath $createProjectLog | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        throw "Unity project creation failed with exit code $LASTEXITCODE"
+        throw "Unity project creation failed with exit code $LASTEXITCODE. See log: $createProjectLog"
     }
 }
 
 # Copy asset
 Write-Host "Copying asset '$input_asset' to export..."
-Copy-Item -Path "$input_asset" -Destination "$tmp_project_path\Assets\$package_name" -Recurse
+Copy-Item -LiteralPath "$input_asset" -Destination (Join-Path -Path $assetsPath -ChildPath $package_name) -Recurse
 
 # Creating asset
 Write-Host "Saving unitypackage '$output_dir\$package_name.unitypackage'..."
-& "$unity_path" -projectPath "$tmp_project_path" -exportPackage "Assets\$package_name" "$output_dir\$package_name.unitypackage" -batchmode -quit | Out-Null
+& "$unity_path" -projectPath "$tmp_project_path" -exportPackage "Assets\$package_name" "$output_dir\$package_name.unitypackage" -batchmode -quit 2>&1 | Tee-Object -FilePath $exportPackageLog | Out-Null
 if ($LASTEXITCODE -ne 0) {
-    throw "Unity package export failed with exit code $LASTEXITCODE"
+    throw "Unity package export failed with exit code $LASTEXITCODE. See log: $exportPackageLog"
 }
 
 # Cleaning up
 Write-Host "Cleaning up temporary project..."
-Remove-Item -Path "$tmp_project_path\Assets\*" -Force -Recurse -ErrorAction Ignore
+Remove-Item -LiteralPath $assetsPath -Force -Recurse -ErrorAction Ignore
+New-Item -ItemType Directory -Force -Path $assetsPath | Out-Null
 
 Write-Host "Done!" -ForegroundColor Green
 

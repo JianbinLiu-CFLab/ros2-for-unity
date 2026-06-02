@@ -7,7 +7,7 @@ Set-StrictMode -Version Latest
 # - Updated supported ROS distribution messaging for Humble/Jazzy maintenance.
 # - Made repository imports run from the repository root instead of the caller's current directory.
 
-$scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
+$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Definition
 
 if (([string]::IsNullOrEmpty($Env:ROS_DISTRO)))
 {

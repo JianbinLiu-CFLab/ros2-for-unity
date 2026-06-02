@@ -99,6 +99,11 @@ case "${1:-}" in
     r2fu_smoke
     exit 0
     ;;
+  r2fu-*)
+    echo "Unknown R2FU container command: $1" >&2
+    echo "Known commands: r2fu-shell, r2fu-build, r2fu-smoke, r2fu-ci" >&2
+    exit 1
+    ;;
 esac
 
 echo ""
