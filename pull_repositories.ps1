@@ -18,6 +18,11 @@ if (([string]::IsNullOrEmpty($Env:ROS_DISTRO)))
 $ros2cs_repos = Join-Path -Path $scriptPath -ChildPath "ros2cs.repos"
 $custom_repos = Join-Path -Path $scriptPath -ChildPath "ros2_for_unity_custom_messages.repos"
 
+function Test-HasVcsRepositoryEntries {
+    param([Parameter(Mandatory=$true)][string]$Path)
+    return [bool](Select-String -Path $Path -Pattern '^\s+type:' -Quiet)
+}
+
 # Anchor vcs imports at the repository root so callers can run this script from any CWD.
 Push-Location $scriptPath
 try {
@@ -29,8 +34,12 @@ try {
     Write-Host ""
     Write-Host "========================================="
     Write-Host "Pulling custom repositories:"
-    vcs import --input $custom_repos
-    if ($LASTEXITCODE -ne 0) { throw "vcs import custom messages failed with exit code $LASTEXITCODE" }
+    if (Test-HasVcsRepositoryEntries -Path $custom_repos) {
+        vcs import --input $custom_repos
+        if ($LASTEXITCODE -ne 0) { throw "vcs import custom messages failed with exit code $LASTEXITCODE" }
+    } else {
+        Write-Host "No custom repositories defined; skipping vcs import."
+    }
 
     Write-Host ""
     Write-Host "========================================="

@@ -120,7 +120,11 @@ fi
 
 # Delegate to ros2cs' own build entrypoint so R2FU does not duplicate colcon/toolchain policy.
 if run_timed "ros2cs build" "$SCRIPTPATH/src/ros2cs/build.sh" "${OPTIONS[@]}"; then
-    run_timed "Unity asset staging" bash -c 'mkdir -p "$2" && rm -rf "$3" && cp -a "$1" "$2/"' _ "$SCRIPTPATH/src/Ros2ForUnity" "$SCRIPTPATH/install/asset" "$SCRIPTPATH/install/asset/Ros2ForUnity"
+    if command -v rsync >/dev/null 2>&1; then
+      run_timed "Unity asset staging" bash -c 'mkdir -p "$2" && rsync --archive --delete "$1/" "$2/"' _ "$SCRIPTPATH/src/Ros2ForUnity" "$SCRIPTPATH/install/asset/Ros2ForUnity"
+    else
+      run_timed "Unity asset staging" bash -c 'mkdir -p "$2" && rm -rf "$3" && cp -a "$1" "$2/"' _ "$SCRIPTPATH/src/Ros2ForUnity" "$SCRIPTPATH/install/asset" "$SCRIPTPATH/install/asset/Ros2ForUnity"
+    fi
     run_timed "plugin deploy" "$SCRIPTPATH/deploy_unity_plugins.sh" "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/" "$SCRIPTPATH/src/ros2cs/install"
     metadata_start_ns=$(date +%s%N)
     for metadata_target in \

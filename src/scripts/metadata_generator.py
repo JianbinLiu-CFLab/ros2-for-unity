@@ -18,15 +18,20 @@ import xml.etree.ElementTree as ET
 import subprocess
 import pathlib
 import os
+import io
 
-def get_git_commit(working_directory) -> str:
-    return run_git(['rev-parse', 'HEAD'], working_directory)
+SCRIPT_DIR = pathlib.Path(__file__).parent
+R2FU_ROOT = SCRIPT_DIR.parents[1]
+R2FU_ASSET = SCRIPT_DIR.parent.joinpath("Ros2ForUnity")
+ROS2CS_PATH = SCRIPT_DIR.parent.joinpath("ros2cs")
+
+def get_git_commit_and_date(working_directory) -> tuple[str, str]:
+    output = run_git(['log', '-1', '--format=%H%n%ci'], working_directory)
+    sha, date = output.split('\n', 1)
+    return sha.strip(), date.strip()
 
 def get_git_description(working_directory) -> str:
     return run_git(['describe', '--tags', '--always'], working_directory)
-
-def get_commit_date(working_directory) -> str:
-    return run_git(['show', '-s', '--format=%ci'], working_directory)
 
 def get_git_abbrev(working_directory) -> str:
     return run_git(['rev-parse', '--abbrev-ref', 'HEAD'], working_directory)
@@ -44,15 +49,15 @@ def run_git(args, working_directory) -> str:
 
 def get_ros2_for_unity_root_path() -> pathlib.Path:
     # metadata_generator.py is expected to live under <repo>/src/scripts.
-    return pathlib.Path(__file__).parents[2]
+    return R2FU_ROOT
 
 def get_ros2_for_unity_path() -> pathlib.Path:
     # metadata_generator.py is expected to live under <repo>/src/scripts.
-    return pathlib.Path(__file__).parents[1].joinpath("Ros2ForUnity")
+    return R2FU_ASSET
 
 def get_ros2cs_path() -> pathlib.Path:
     # ros2cs is expected beside Ros2ForUnity under <repo>/src.
-    return pathlib.Path(__file__).parents[1].joinpath("ros2cs")
+    return ROS2CS_PATH
 
 def get_ros2_version() -> str:
     return os.environ.get("ROS_DISTRO", "unknown")
@@ -70,39 +75,52 @@ def main() -> None:
     parser.add_argument('--standalone', action='store_true', help='is a standalone build')
     args = parser.parse_args()
 
-    require_existing_path(get_ros2_for_unity_root_path().joinpath(".git"), "ros2-for-unity .git")
-    require_directory(get_ros2cs_path(), "ros2cs checkout")
-    require_existing_path(get_ros2cs_path().joinpath(".git"), "ros2cs .git")
-    require_directory(get_ros2_for_unity_path(), "Ros2ForUnity asset directory")
+    ros2_for_unity_root_path = get_ros2_for_unity_root_path()
+    ros2_for_unity_path = get_ros2_for_unity_path()
+    ros2cs_path = get_ros2cs_path()
+    ros2_version = get_ros2_version()
+
+    require_existing_path(ros2_for_unity_root_path.joinpath(".git"), "ros2-for-unity .git")
+    require_directory(ros2cs_path, "ros2cs checkout")
+    require_existing_path(ros2cs_path.joinpath(".git"), "ros2cs .git")
+    require_directory(ros2_for_unity_path, "Ros2ForUnity asset directory")
+
+    ros2_for_unity_sha, ros2_for_unity_date = get_git_commit_and_date(ros2_for_unity_root_path)
+    ros2cs_sha, ros2cs_date = get_git_commit_and_date(ros2cs_path)
 
     ros2_for_unity = ET.Element("ros2_for_unity")
-    ET.SubElement(ros2_for_unity, "ros2").text = get_ros2_version()
+    ET.SubElement(ros2_for_unity, "ros2").text = ros2_version
     ros2_for_unity_version = ET.SubElement(ros2_for_unity, "version")
-    ET.SubElement(ros2_for_unity_version, "sha").text = get_git_commit(get_ros2_for_unity_root_path())
-    ET.SubElement(ros2_for_unity_version, "desc").text = get_git_description(get_ros2_for_unity_root_path())
-    ET.SubElement(ros2_for_unity_version, "date").text = get_commit_date(get_ros2_for_unity_root_path())
+    ET.SubElement(ros2_for_unity_version, "sha").text = ros2_for_unity_sha
+    ET.SubElement(ros2_for_unity_version, "desc").text = get_git_description(ros2_for_unity_root_path)
+    ET.SubElement(ros2_for_unity_version, "date").text = ros2_for_unity_date
 
     ros2_cs = ET.Element("ros2cs")
-    ET.SubElement(ros2_cs, "ros2").text = get_ros2_version()
+    ET.SubElement(ros2_cs, "ros2").text = ros2_version
     ros2_cs_version = ET.SubElement(ros2_cs, "version")
-    ET.SubElement(ros2_cs_version, "sha").text = get_git_commit(get_ros2cs_path())
-    ET.SubElement(ros2_cs_version, "desc").text = get_git_description(get_ros2cs_path())
-    ET.SubElement(ros2_cs_version, "date").text = get_commit_date(get_ros2cs_path())
+    ET.SubElement(ros2_cs_version, "sha").text = ros2cs_sha
+    ET.SubElement(ros2_cs_version, "desc").text = get_git_description(ros2cs_path)
+    ET.SubElement(ros2_cs_version, "date").text = ros2cs_date
     ET.SubElement(ros2_cs, "standalone").text = str(int(args.standalone))
 
-    metadata_rf2u_file = get_ros2_for_unity_path().joinpath("metadata_ros2_for_unity.xml")
+    metadata_rf2u_file = ros2_for_unity_path.joinpath("metadata_ros2_for_unity.xml")
     write_metadata_xml(ros2_for_unity, metadata_rf2u_file)
 
-    metadata_r2cs_file = get_ros2_for_unity_path().joinpath("metadata_ros2cs.xml")
+    metadata_r2cs_file = ros2_for_unity_path.joinpath("metadata_ros2cs.xml")
     write_metadata_xml(ros2_cs, metadata_r2cs_file)
 
 def write_metadata_xml(root: ET.Element, destination: pathlib.Path) -> None:
     # ET.indent requires Python 3.9+; ROS 2 Jazzy's supported Python satisfies this.
     ET.indent(root, space="   ")
-    tree = ET.ElementTree(root)
+    buffer = io.BytesIO()
+    ET.ElementTree(root).write(buffer, encoding="utf-8", xml_declaration=True)
+    new_content = buffer.getvalue()
+    if destination.exists() and destination.read_bytes() == new_content:
+        return
+
     temporary_destination = destination.with_name(destination.name + ".tmp")
     try:
-        tree.write(temporary_destination, encoding="utf-8", xml_declaration=True)
+        temporary_destination.write_bytes(new_content)
         os.replace(temporary_destination, destination)
     finally:
         if temporary_destination.exists():
