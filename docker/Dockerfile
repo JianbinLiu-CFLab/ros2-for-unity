@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.4
 ## Modifications Copyright (c) 2026 Jianbin Liu.
 ##
 ## Modifications by Jianbin Liu:
@@ -11,12 +12,18 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV R2FU_WORKDIR=/workdir/ros2-for-unity
+ENV NUGET_PACKAGES=/workdir/cache/nuget
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     git \
     patchelf \
+    rsync \
     dotnet-sdk-8.0 \
     ros-${ROS_DISTRO}-test-msgs \
     ros-${ROS_DISTRO}-fastrtps \
@@ -24,8 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-${ROS_DISTRO}-cyclonedds \
     ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
     && curl -s https://packagecloud.io/install/repositories/dirk-thomas/vcstool/script.deb.sh | bash \
-    && apt-get install -y --no-install-recommends python3-vcstool \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y --no-install-recommends python3-vcstool
 
 COPY entrypoint.sh /entrypoint.sh
 COPY ci_smoke.sh /usr/local/bin/r2fu-ci-smoke
@@ -33,7 +39,7 @@ RUN chmod +x /entrypoint.sh /usr/local/bin/r2fu-ci-smoke
 
 # /workdir must be writable for arbitrary host uid/gid mappings used by run_container.sh.
 # Use a sticky world-writable work root instead of recursively chmodding /home.
-RUN mkdir -p /workdir/ros2-for-unity /workdir/cache /workdir/custom_messages \
-    && chmod 1777 /workdir /workdir/ros2-for-unity /workdir/cache /workdir/custom_messages
+RUN mkdir -p /workdir/ros2-for-unity /workdir/cache/nuget /workdir/custom_messages \
+    && chmod 1777 /workdir /workdir/ros2-for-unity /workdir/cache /workdir/cache/nuget /workdir/custom_messages
 
 ENTRYPOINT [ "/entrypoint.sh" ]

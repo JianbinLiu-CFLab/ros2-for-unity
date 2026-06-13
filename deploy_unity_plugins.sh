@@ -66,12 +66,26 @@ run_timed() {
 copy_find_batch() {
   local source_dir="$1"
   local destination_dir="$2"
+  local source_root
   shift 2
   if [ ! -d "$source_dir" ]; then
     echo "Copy source directory does not exist: $source_dir" >&2
     return 1
   fi
   mkdir -p "$destination_dir"
+  source_root="${source_dir%/}"
+  if command -v rsync > /dev/null 2>&1; then
+    local files=()
+    local file
+    while IFS= read -r -d '' file; do
+      files+=("${file#"$source_root"/}")
+    done < <(find "$source_root" -maxdepth 1 "$@" -printf '%p\0')
+    if [ ${#files[@]} -eq 0 ]; then
+      return 0
+    fi
+    printf '%s\0' "${files[@]}" | rsync -a --checksum --copy-links --from0 --files-from=- "$source_root/" "$destination_dir/"
+    return
+  fi
   find "$source_dir" -maxdepth 1 "$@" -exec cp -L -t "$destination_dir" {} +
 }
 

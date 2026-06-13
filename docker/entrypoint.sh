@@ -21,6 +21,8 @@ if [ -z "${HOME:-}" ] || [ ! -w "${HOME:-/}" ]; then
   export HOME=/tmp/r2fu-home
 fi
 mkdir -p "$HOME"
+export NUGET_PACKAGES=${NUGET_PACKAGES:-/workdir/cache/nuget}
+mkdir -p "$NUGET_PACKAGES"
 
 prepare_workspace() {
   echo "######################################################################"
