@@ -35,7 +35,11 @@ internal class ROS2ForUnity : IDisposable
     private static int referenceCount = 0;
     private static bool pathConfigured = false;
     private static string ros2ForUnityAssetFolderName = "Ros2ForUnity";
-    private static readonly List<string> supportedVersions = new List<string>() { "foxy", "galactic", "humble", "jazzy", "rolling" };
+    private static readonly string[] supportedVersionsOrdered = { "foxy", "galactic", "humble", "jazzy", "rolling" };
+    private static readonly HashSet<string> supportedVersions = new HashSet<string>(supportedVersionsOrdered);
+    private static readonly string supportedVersionsString = String.Join(", ", supportedVersionsOrdered);
+    private static readonly Lazy<string> ros2ForUnityPath = new Lazy<string>(ComputeRos2ForUnityPath);
+    private static readonly Lazy<string> pluginPath = new Lazy<string>(ComputePluginPath);
     private static ConsoleCancelEventHandler consoleCancelHandler;
 #if UNITY_EDITOR
     private static bool editorHandlersRegistered = false;
@@ -98,43 +102,53 @@ internal class ROS2ForUnity : IDisposable
 
     public static string GetRos2ForUnityPath()
     {
+        return ros2ForUnityPath.Value;
+    }
+
+    private static string ComputeRos2ForUnityPath()
+    {
         char separator = Path.DirectorySeparatorChar;
         string appDataPath = Application.dataPath;
-        string pluginPath = appDataPath;
+        string path = appDataPath;
 
         if (InEditor()) {
-            pluginPath += separator + ros2ForUnityAssetFolderName;
+            path += separator + ros2ForUnityAssetFolderName;
         }
-        return pluginPath; 
+        return path;
     }
 
     public static string GetPluginPath()
     {
+        return pluginPath.Value;
+    }
+
+    private static string ComputePluginPath()
+    {
         char separator = Path.DirectorySeparatorChar;
         string ros2ForUnityPath = GetRos2ForUnityPath();
-        string pluginPath = ros2ForUnityPath;
+        string path = ros2ForUnityPath;
 
         // Editor: Assets/Ros2ForUnity/Plugins/<OS>/x86_64
         // Windows Player: <App>_Data/Plugins/x86_64
         // Linux Player: <App>_Data/Plugins
 
-        pluginPath += separator + "Plugins";
-        
+        path += separator + "Plugins";
+
         if (InEditor()) {
-            pluginPath += separator + GetOSName();
+            path += separator + GetOSName();
         }
 
         if (InEditor() || GetOS() == Platform.Windows)
         {
-           pluginPath += separator + "x86_64";
-        }
-        
-        if (GetOS() == Platform.Windows)
-        {
-           pluginPath = pluginPath.Replace("/", "\\");
+           path += separator + "x86_64";
         }
 
-        return pluginPath;
+        if (GetOS() == Platform.Windows)
+        {
+           path = path.Replace("/", "\\");
+        }
+
+        return path;
     }
 
     /// <summary>
@@ -253,7 +267,6 @@ internal class ROS2ForUnity : IDisposable
     /// </summary>
     private void CheckROSSupport(string ros2Codename)
     {
-        var supportedVersionsString = String.Join(", ", supportedVersions);
         if (string.IsNullOrEmpty(ros2Codename))
         {
             string errMessage = "No ROS environment sourced. You need to source your ROS2 " + supportedVersionsString

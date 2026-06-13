@@ -33,6 +33,7 @@ public class ROS2ClientExample : MonoBehaviour
     private bool isRunning = false;
     private int runningCoroutines = 0;
     private Task<addTwoIntsResp> asyncTask;
+    private readonly WaitForSecondsRealtime waitOneSecond = new WaitForSecondsRealtime(1);
 
     IEnumerator periodicAsyncCall()
     {
@@ -40,13 +41,13 @@ public class ROS2ClientExample : MonoBehaviour
         {
             if (addTwoIntsClient == null)
             {
-                yield return new WaitForSecondsRealtime(1);
+                yield return waitOneSecond;
                 continue;
             }
 
             while (ros2Unity != null && ros2Unity.Ok() && addTwoIntsClient != null && !addTwoIntsClient.IsServiceAvailable())
             {
-                yield return new WaitForSecondsRealtime(1);
+                yield return waitOneSecond;
             }
 
             if (ros2Unity == null || !ros2Unity.Ok() || addTwoIntsClient == null)
@@ -73,7 +74,7 @@ public class ROS2ClientExample : MonoBehaviour
                 Debug.Log("Got async answer " + asyncTask.Result.Sum);
             }
             
-            yield return new WaitForSecondsRealtime(1);
+            yield return waitOneSecond;
         }
     }
 
