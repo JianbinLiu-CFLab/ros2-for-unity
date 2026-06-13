@@ -29,5 +29,4 @@ vcs import --input "$SCRIPTPATH/ros2_for_unity_custom_messages.repos"
 echo ""
 echo "========================================="
 echo "Pulling ros2cs dependencies:"
-cd "$SCRIPTPATH/src/ros2cs"
-./get_repos.sh
+(cd "$SCRIPTPATH/src/ros2cs" && ./get_repos.sh)

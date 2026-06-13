@@ -33,9 +33,9 @@ print_timing_summary() {
   echo "Ros2ForUnity plugin deployment timing summary:"
   local i
   for ((i = 0; i < ${#TIMING_NAMES[@]}; i++)); do
-    printf '  %-28s %8.3fs\n' "${TIMING_NAMES[$i]}" "$(awk "BEGIN { print ${TIMING_MS[$i]} / 1000 }")"
+    printf '  %-28s %9s\n' "${TIMING_NAMES[$i]}" "$(awk "BEGIN { printf \"%.3fs\", ${TIMING_MS[$i]} / 1000 }")"
   done
-  printf '  %-28s %8.3fs\n' "total" "$(awk "BEGIN { print $total_ms / 1000 }")"
+  printf '  %-28s %9s\n' "total" "$(awk "BEGIN { printf \"%.3fs\", $total_ms / 1000 }")"
 }
 
 run_timed() {
@@ -68,24 +68,36 @@ trap print_timing_summary EXIT
 
 if [ $# -gt 0 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
   echo "Usage:"
-  echo "deploy_unity_plugins.sh <PLUGINS_DIR>"
+  echo "deploy_unity_plugins.sh <PLUGINS_DIR> [INSTALL_ROOT]"
   echo ""
   echo "PLUGINS_DIR - Ros2ForUnity/Plugins folder."
+  echo "INSTALL_ROOT - ros2cs install root, default = '<script dir>/install'."
   exit 0
 fi
 
 if [ $# -eq 0 ]; then
   echo "Usage:"
-  echo "deploy_unity_plugins.sh <PLUGINS_DIR>"
+  echo "deploy_unity_plugins.sh <PLUGINS_DIR> [INSTALL_ROOT]"
   echo ""
   echo "PLUGINS_DIR - Ros2ForUnity/Plugins folder."
+  echo "INSTALL_ROOT - ros2cs install root, default = '<script dir>/install'."
   exit 1
 fi
 
 pluginDir=$1
+installRoot=${2:-"$SCRIPTPATH/install"}
+
+require_file_glob() {
+  local description="$1"
+  local pattern="$2"
+  if ! compgen -G "$pattern" > /dev/null; then
+    echo "Required deployed ${description} is missing: expected ${pattern}" >&2
+    exit 1
+  fi
+}
 
 mkdir -p "${pluginDir}/Linux/x86_64/"
-run_timed "managed DLL deploy" copy_find_batch "$SCRIPTPATH/install/lib/dotnet/" "${pluginDir}" -type f -not -name "*.pdb"
+run_timed "managed DLL deploy" copy_find_batch "$installRoot/lib/dotnet/" "${pluginDir}" -type f -not -name "*.pdb"
 for required_managed in ros2cs_common.dll ros2cs_core.dll; do
   if [ ! -f "${pluginDir}/${required_managed}" ]; then
     echo "Required deployed managed file is missing: ${pluginDir}/${required_managed}" >&2
@@ -93,12 +105,21 @@ for required_managed in ros2cs_common.dll ros2cs_core.dll; do
   fi
 done
 # Standalone/resource outputs are optional; non-standalone builds must still deploy the core plugins.
-if [ -d "$SCRIPTPATH/install/standalone" ]; then
-  run_timed "standalone native deploy" copy_find_batch "$SCRIPTPATH/install/standalone" "${pluginDir}/Linux/x86_64/" \( -type f -o -type l \)
+if [ -d "$installRoot/standalone" ]; then
+  run_timed "standalone native deploy" copy_find_batch "$installRoot/standalone" "${pluginDir}/Linux/x86_64/" \( -type f -o -type l \)
 fi
-run_timed "native lib deploy" copy_find_batch "$SCRIPTPATH/install/lib/" "${pluginDir}/Linux/x86_64/" \( -type f -o -type l \) -not -name "*_python.so"
-if [ -d "$SCRIPTPATH/install/resources" ]; then
-  run_timed "resource native deploy" copy_find_batch "$SCRIPTPATH/install/resources" "${pluginDir}/Linux/x86_64/" \( -type f -o -type l \) -name "*.so"
+run_timed "native lib deploy" copy_find_batch "$installRoot/lib/" "${pluginDir}/Linux/x86_64/" \( -type f -o -type l \) -not -name "*_python.so"
+if [ -d "$installRoot/resources" ]; then
+  run_timed "resource native deploy" copy_find_batch "$installRoot/resources" "${pluginDir}/Linux/x86_64/" \( -type f -o -type l \) -name "*.so"
+fi
+
+if [ -d "$installRoot/standalone" ] || [ -d "$installRoot/resources" ] || compgen -G "$installRoot/lib/librcl.so*" > /dev/null; then
+  require_file_glob "rcl runtime" "${pluginDir}/Linux/x86_64/librcl.so*"
+  require_file_glob "rmw implementation runtime" "${pluginDir}/Linux/x86_64/librmw_implementation.so*"
+  if ! compgen -G "${pluginDir}/Linux/x86_64/libyaml.so*" > /dev/null && ! compgen -G "${pluginDir}/Linux/x86_64/libyaml-cpp.so*" > /dev/null; then
+    echo "Required deployed YAML runtime is missing: expected libyaml.so* or libyaml-cpp.so* under ${pluginDir}/Linux/x86_64/" >&2
+    exit 1
+  fi
 fi
 
 managed_count=$(find "${pluginDir}" -maxdepth 1 -type f | wc -l)

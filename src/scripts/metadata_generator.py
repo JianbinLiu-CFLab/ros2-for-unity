@@ -100,7 +100,13 @@ def write_metadata_xml(root: ET.Element, destination: pathlib.Path) -> None:
     # ET.indent requires Python 3.9+; ROS 2 Jazzy's supported Python satisfies this.
     ET.indent(root, space="   ")
     tree = ET.ElementTree(root)
-    tree.write(destination, encoding="utf-8", xml_declaration=True)
+    temporary_destination = destination.with_name(destination.name + ".tmp")
+    try:
+        tree.write(temporary_destination, encoding="utf-8", xml_declaration=True)
+        os.replace(temporary_destination, destination)
+    finally:
+        if temporary_destination.exists():
+            temporary_destination.unlink()
 
 if __name__ == "__main__":
     main()
