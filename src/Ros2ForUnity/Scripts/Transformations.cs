@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using UnityEngine;
+using System.Runtime.CompilerServices;
 
 namespace ROS2
 {
@@ -83,6 +84,7 @@ public static class Transformations
         vector.z = y;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Matrix4x4 Unity2RosMatrix4x4()
     {
         return Unity2RosMatrix;

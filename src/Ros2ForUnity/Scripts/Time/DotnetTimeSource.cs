@@ -55,7 +55,7 @@ public class DotnetTimeSource : ITimeSource
     {
         lock(mutex) // Threading
         {
-            var durationInSeconds = stopwatch.Elapsed.TotalSeconds;
+            var durationInSeconds = stopwatch.ElapsedTicks / (double)Stopwatch.Frequency;
             double timeOffset = 0;
             if (durationInSeconds >= maxUnsyncedSeconds)
             {   // acquire DateTime to sync

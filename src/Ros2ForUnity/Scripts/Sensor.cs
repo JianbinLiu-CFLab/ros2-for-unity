@@ -89,6 +89,7 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
     private ROS2UnityComponent ros2UnityComponent;
     private ROS2Node ros2Node;
     private string ownerAgentName;
+    private string cachedFrameName;
 
     private T readings;
     private bool newReadings;
@@ -96,6 +97,11 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
 
     public override string frameName()
     {
+        if (cachedFrameName != null)
+        {
+            return cachedFrameName;
+        }
+
         if (String.IsNullOrEmpty(ownerAgentName))
         {
             return frameID;
@@ -141,6 +147,7 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
         }
 
         ownerAgentName = agentName;
+        cachedFrameName = String.IsNullOrEmpty(ownerAgentName) ? frameID : ownerAgentName + "/" + frameID;
         ros2UnityComponent = ros2Unity;
         ros2Node = node;
         string nsName = agentName.Replace(" ", "_");
