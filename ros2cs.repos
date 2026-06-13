@@ -8,9 +8,10 @@
 # - Updated the pin to include the generated message finalizer shutdown crash fix.
 # - Updated the pin to include ros2cs lifecycle review follow-ups and service callback compile fix.
 # - Updated the pin to include qualified generated Array.Empty calls.
+# - Updated the pin to include Phase 17 Unity-safe graph wait and lightweight node options.
 #
 repositories:
   src/ros2cs/:
     type: git
     url:     https://github.com/JianbinLiu-CFLab/ros2cs.git
-    version: e0c06c3e050c1c6d50d4cae88aaa60cde04f0ed3
+    version: 632a084f0ffcc52c3b3cb5878cd1136141b98f07

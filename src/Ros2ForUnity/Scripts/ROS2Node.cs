@@ -119,11 +119,11 @@ public class ROS2Node : IDisposable
             clockToUse.UpdateROSTimestamp(ref message);
             return true;
         }
-        catch (InvalidOperationException)
+        catch (ObjectDisposedException)
         {
             return false;
         }
-        catch (ObjectDisposedException)
+        catch (InvalidOperationException)
         {
             return false;
         }
