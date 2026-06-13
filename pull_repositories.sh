@@ -20,13 +20,13 @@ echo "========================================="
 echo "* Pulling ros2cs repository:"
 # Anchor vcs imports at the repository root so callers can run this script from any CWD.
 cd "$SCRIPTPATH"
-vcs import --input "$SCRIPTPATH/ros2cs.repos"
+vcs import --shallow --input "$SCRIPTPATH/ros2cs.repos"
 
 echo ""
 echo "========================================="
 echo "Pulling custom repositories:"
 if grep -qE '^[[:space:]]+type:' "$custom_repos"; then
-    vcs import --input "$custom_repos"
+    vcs import --shallow --input "$custom_repos"
 else
     echo "No custom repositories defined; skipping vcs import."
 fi
