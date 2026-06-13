@@ -170,7 +170,7 @@ public class ROS2UnityComponent : MonoBehaviour
 
             lock (mutex)
             {
-                if (!quitting && ros2forUnity != null && nodes != null && ros2forUnity.Ok())
+                if (!quitting && !disposed && ros2forUnity != null && nodes != null && ros2forUnity.Ok())
                 {
                     actionsSnapshot = new List<Action>(executableActions);
                     nodesSnapshot = new List<INode>(ros2csNodes);
@@ -212,6 +212,7 @@ public class ROS2UnityComponent : MonoBehaviour
 
     void FixedUpdate()
     {
+        // Start on the first fixed-timestep update so executor spin timing follows Unity physics cadence.
         StartExecutor();
     }
 

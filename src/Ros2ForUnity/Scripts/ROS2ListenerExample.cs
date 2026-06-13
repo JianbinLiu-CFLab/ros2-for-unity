@@ -30,10 +30,19 @@ public class ROS2ListenerExample : MonoBehaviour
     void Start()
     {
         ros2Unity = GetComponent<ROS2UnityComponent>();
+        if (ros2Unity == null)
+        {
+            Debug.LogError("ROS2ListenerExample requires ROS2UnityComponent on the same GameObject.");
+        }
     }
 
     void Update()
     {
+        if (ros2Unity == null)
+        {
+            return;
+        }
+
         if (ros2Node == null && ros2Unity.Ok())
         {
             ros2Node = ros2Unity.CreateNode("ROS2UnityListenerNode");

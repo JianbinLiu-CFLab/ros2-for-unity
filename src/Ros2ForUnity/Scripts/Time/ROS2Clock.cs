@@ -68,7 +68,10 @@ public class ROS2Clock : IDisposable
         {
             throw new ObjectDisposedException(nameof(ROS2Clock));
         }
-        _timeSource.GetTime(out seconds, out nanoseconds);
+        if (!_timeSource.GetTime(out seconds, out nanoseconds))
+        {
+            throw new InvalidOperationException("Cannot acquire valid ROS2 time from the configured time source.");
+        }
     }
 
     public void Dispose()

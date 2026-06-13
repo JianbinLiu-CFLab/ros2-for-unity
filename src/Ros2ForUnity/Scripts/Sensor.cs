@@ -76,9 +76,13 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
 
     /// <summary>
     /// Returns true when there is a new data available from sensor.
+    /// Subclasses are responsible for applying desiredFrameTime if they want frequency gating.
     /// </summary>
     protected abstract bool HasNewData();
 
+    /// <summary>
+    /// Desired seconds between sensor readings. The base class calculates this value but does not gate HasNewData().
+    /// </summary>
     protected double desiredFrameTime = 0.0;
     private const double minimumFrequency = 0.001;
     private Publisher<T> publisher;
@@ -92,6 +96,10 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
 
     public override string frameName()
     {
+        if (String.IsNullOrEmpty(ownerAgentName))
+        {
+            return frameID;
+        }
         return ownerAgentName + "/" + frameID;
     }
 

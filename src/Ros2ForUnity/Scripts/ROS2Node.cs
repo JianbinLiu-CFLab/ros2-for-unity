@@ -71,7 +71,7 @@ public class ROS2Node : IDisposable
 
         try
         {
-            if (nodeToDispose != null)
+            if (nodeToDispose != null && Ros2cs.Ok())
             {
                 Ros2cs.RemoveNode(nodeToDispose);
             }
@@ -105,8 +105,15 @@ public class ROS2Node : IDisposable
                 return false;
             }
 
-            clock.UpdateROSTimestamp(ref message);
-            return true;
+            try
+            {
+                clock.UpdateROSTimestamp(ref message);
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
         }
     }
 
@@ -137,6 +144,7 @@ public class ROS2Node : IDisposable
     /// <param name="topicName">topic that will be used for publishing</param>
     public Publisher<T> CreateSensorPublisher<T>(string topicName) where T : Message, new()
     {
+        // ros2cs copies QoS settings during publisher creation; this temporary profile only configures that call.
         using (QualityOfServiceProfile sensorProfile = new QualityOfServiceProfile(QosPresetProfile.SENSOR_DATA))
         {
             return CreatePublisher<T>(topicName, sensorProfile);

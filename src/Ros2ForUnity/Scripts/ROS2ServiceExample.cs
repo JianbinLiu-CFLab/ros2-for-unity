@@ -33,10 +33,19 @@ public class ROS2ServiceExample : MonoBehaviour
     void Start()
     {
         ros2Unity = GetComponent<ROS2UnityComponent>();
+        if (ros2Unity == null)
+        {
+            Debug.LogError("ROS2ServiceExample requires ROS2UnityComponent on the same GameObject.");
+        }
     }
 
     void Update()
     {
+        if (ros2Unity == null)
+        {
+            return;
+        }
+
         if (ros2Unity.Ok())
         {
             if (ros2Node == null)

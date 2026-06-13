@@ -12,6 +12,15 @@ plugin_dir="$asset_dir/Plugins"
 native_dir="$plugin_dir/Linux/x86_64"
 ldd_log=$(mktemp "${TMPDIR:-/tmp}/r2fu-ci-smoke-ldd.XXXXXX")
 topic_log=$(mktemp "${TMPDIR:-/tmp}/r2fu-ci-smoke-topic-list.XXXXXX")
+cleanup() {
+  local status=$?
+  if [ "$status" -eq 0 ]; then
+    rm -f "$ldd_log" "$topic_log"
+  else
+    echo "Keeping smoke diagnostic logs: $ldd_log $topic_log" >&2
+  fi
+}
+trap cleanup EXIT
 
 source "/opt/ros/$ROS_DISTRO/setup.bash"
 
@@ -38,12 +47,17 @@ require_glob() {
 require_file "$plugin_dir/ros2cs_common.dll"
 require_file "$plugin_dir/ros2cs_core.dll"
 
-rcl_lib=$(require_glob "$native_dir/librcl.so*")
+require_glob "$native_dir/librcl.so*" >/dev/null
 require_glob "$native_dir/librmw_implementation.so*" >/dev/null
 require_glob "$native_dir/libyaml*.so*" >/dev/null
 
-echo "Checking native dependency closure with ldd: $rcl_lib"
-ldd "$rcl_lib" | tee "$ldd_log"
+echo "Checking native dependency closure with ldd."
+find "$native_dir" -maxdepth 1 -type f -name "*.so*" -print0 |
+  sort -z |
+  while IFS= read -r -d '' native_lib; do
+    echo "==> $native_lib"
+    ldd "$native_lib"
+  done | tee "$ldd_log"
 if grep -q "not found" "$ldd_log"; then
   echo "Native dependency closure has unresolved libraries." >&2
   echo "ldd log: $ldd_log" >&2

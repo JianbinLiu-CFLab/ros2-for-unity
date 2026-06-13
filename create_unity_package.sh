@@ -17,13 +17,13 @@ display_usage() {
   echo "create_unity_package.sh -u <UNITY_PATH> -i [INPUT_ASSET] -p [PACKAGE_NAME] -o [OUTPUT_DIR]"
   echo ""
   echo "UNITY_PATH - Unity editor executable path"
-  echo "INPUT_ASSET - input asset to pack into unity package, default = 'install/asset/Ros2ForUnity'"
+  echo "INPUT_ASSET - input asset to pack into unity package, default = '<script dir>/install/asset/Ros2ForUnity'"
   echo "PACKAGE_NAME - unity package name, default = 'Ros2ForUnity'"
   echo "OUTPUT_DIR - output file directory, default = 'install/unity_package'"
 }
 
 UNITY_PATH=""
-INPUT_ASSET="install/asset/Ros2ForUnity"
+INPUT_ASSET="$SCRIPTPATH/install/asset/Ros2ForUnity"
 PACKAGE_NAME="Ros2ForUnity"
 OUTPUT_DIR="$SCRIPTPATH/install/unity_package"
 
@@ -101,6 +101,10 @@ echo "Using \"${UNITY_PATH}\" editor."
 
 TMP_ROOT="${TMPDIR:-/tmp}"
 TMP_PROJECT_PATH="$TMP_ROOT/ros2cs_unity_project/$SAFE_UNITY_VERSION"
+UNITY_LOG_DIR="$TMP_ROOT/ros2cs_unity_project_logs"
+CREATE_PROJECT_LOG="$UNITY_LOG_DIR/create_$SAFE_UNITY_VERSION.log"
+EXPORT_PACKAGE_LOG="$UNITY_LOG_DIR/export_$SAFE_UNITY_VERSION.log"
+mkdir -p "$UNITY_LOG_DIR"
 # Create temp project
 if [ -d "$TMP_PROJECT_PATH" ]; then
     echo "Found existing temporary project for Unity $UNITY_VERSION."
@@ -108,7 +112,10 @@ if [ -d "$TMP_PROJECT_PATH" ]; then
     mkdir -p "$TMP_PROJECT_PATH/Assets"
 else
   echo "Creating Unity temporary project for Unity $UNITY_VERSION..."
-  "$UNITY_PATH" -createProject "$TMP_PROJECT_PATH" -batchmode -quit
+  if ! "$UNITY_PATH" -createProject "$TMP_PROJECT_PATH" -batchmode -quit 2>&1 | tee "$CREATE_PROJECT_LOG"; then
+    echo "Unity project creation failed. See log: $CREATE_PROJECT_LOG" >&2
+    exit 1
+  fi
 fi
 
 # Copy asset
@@ -118,7 +125,10 @@ cp -r "$INPUT_ASSET" "$TMP_PROJECT_PATH/Assets/$PACKAGE_NAME"
 # Creating asset
 echo "Saving unitypackage '$OUTPUT_DIR/$PACKAGE_NAME.unitypackage'..."
 mkdir -p "$OUTPUT_DIR"
-"$UNITY_PATH" -projectPath "$TMP_PROJECT_PATH" -exportPackage "Assets/$PACKAGE_NAME" "$OUTPUT_DIR/$PACKAGE_NAME.unitypackage" -batchmode -quit
+if ! "$UNITY_PATH" -projectPath "$TMP_PROJECT_PATH" -exportPackage "Assets/$PACKAGE_NAME" "$OUTPUT_DIR/$PACKAGE_NAME.unitypackage" -batchmode -quit 2>&1 | tee "$EXPORT_PACKAGE_LOG"; then
+  echo "Unity package export failed. See log: $EXPORT_PACKAGE_LOG" >&2
+  exit 1
+fi
 
 # Cleaning up
 echo "Cleaning up temporary project..."

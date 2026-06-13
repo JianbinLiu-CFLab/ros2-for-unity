@@ -42,14 +42,14 @@ public class ROS2ScalableTimeSource : ITimeSource, IDisposable
     UpdateUnityTimeSnapshot();
   }
 
-  public void GetTime(out int seconds, out uint nanoseconds)
+  public bool GetTime(out int seconds, out uint nanoseconds)
   {
     if (!ROS2.Ros2cs.Ok())
     {
       seconds = 0;
       nanoseconds = 0;
       Debug.LogWarning("Cannot acquire valid ros time, ros either not initialized or shut down already");
-      return;
+      return false;
     }
 
     bool isMainThread = mainThreadId == Thread.CurrentThread.ManagedThreadId;
@@ -88,6 +88,7 @@ public class ROS2ScalableTimeSource : ITimeSource, IDisposable
       }
       TimeUtils.TimeFromTotalSeconds(adjustedTime, out seconds, out nanoseconds);
     }
+    return true;
   }
 
   private double GetRosNowSeconds()

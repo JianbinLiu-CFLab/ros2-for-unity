@@ -27,14 +27,14 @@ public class ROS2TimeSource : ITimeSource, IDisposable
   private readonly object clockMutex = new object();
   private ROS2.Clock clock;
 
-  public void GetTime(out int seconds, out uint nanoseconds)
+  public bool GetTime(out int seconds, out uint nanoseconds)
   {
     if (!ROS2.Ros2cs.Ok())
     {
       seconds = 0;
       nanoseconds = 0;
       Debug.LogWarning("Cannot acquire valid ros time, ros either not initialized or shut down already");
-      return;
+      return false;
     }
 
     double nowSeconds;
@@ -48,6 +48,7 @@ public class ROS2TimeSource : ITimeSource, IDisposable
     }
 
     TimeUtils.TimeFromTotalSeconds(nowSeconds, out seconds, out nanoseconds);
+    return true;
   }
 
   public void Dispose()

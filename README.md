@@ -23,10 +23,10 @@ This fork consumes the maintained ros2cs fork through `ros2cs.repos`:
 
 ```text
 https://github.com/JianbinLiu-CFLab/ros2cs.git
-version: v0.5.0-jazzy-preview.1
+version: 6778163f16d03457b7925d1e5a6e97f430604c9b
 ```
 
-The `main` branch remains the active integration line, while public build inputs are pinned to preview tags for reproducibility.
+The `main` branch remains the active integration line, while public build inputs are pinned to verified preview commit hashes for reproducibility.
 
 The upstream RobotecAI repositories remain the original source and licensing history, but they are not the active integration target for this Jazzy/R2FU maintenance line. Upstream changes should be reviewed and cherry-picked deliberately.
 
