@@ -14,4 +14,6 @@ fi
 
 IMAGE_NAME=${R2FU_DOCKER_IMAGE:-ros2-for-unity}
 
+export DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1}
+
 docker build . --build-arg ROS2_DISTRO="$ROS_DISTRO" --tag "$IMAGE_NAME"

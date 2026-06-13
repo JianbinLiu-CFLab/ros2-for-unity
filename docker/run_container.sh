@@ -36,6 +36,7 @@ docker_args=(
   --user "$(id -u):$(id -g)"
   -e "R2FU_REPO=$R2FU_REPO"
   -e "R2FU_REF=$R2FU_REF"
+  -e "NUGET_PACKAGES=/workdir/cache/nuget"
   -v /etc/passwd:/etc/passwd:ro
   -v /etc/group:/etc/group:ro
   -v "$SCRIPTPATH/../install:/workdir/ros2-for-unity/install:rw"

@@ -84,4 +84,6 @@ You can add custom messages by putting them inside `docker/custom_messages` fold
 - `docker/custom_messages` to `/workdir/custom_messages`
 - `docker/cache` to `/workdir/cache`
 
+NuGet packages are cached under `docker/cache/nuget` through `NUGET_PACKAGES=/workdir/cache/nuget`. Remove that directory when you need a cold restore or want to reclaim disk space.
+
 The container runs as the host uid/gid. Generated files should remain writable and removable by the host user.
