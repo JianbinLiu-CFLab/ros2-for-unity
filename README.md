@@ -23,7 +23,7 @@ This fork consumes the maintained ros2cs fork through `ros2cs.repos`:
 
 ```text
 https://github.com/JianbinLiu-CFLab/ros2cs.git
-version: 6778163f16d03457b7925d1e5a6e97f430604c9b
+version: e0c06c3e050c1c6d50d4cae88aaa60cde04f0ed3
 ```
 
 The `main` branch remains the active integration line, while public build inputs are pinned to verified preview commit hashes for reproducibility.
@@ -37,14 +37,14 @@ Current local maintenance evidence is centered on Windows 10 LTSC + ROS 2 Jazzy.
 Verified on the current maintenance line:
 
 - Build GREEN: Windows-native Jazzy standalone asset build through `build.ps1`, using the canonical `ros2cs` workspace and documented short-path Windows layout.
-- Latest source release: [`v0.5.0-jazzy-win64-preview.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.5.0-jazzy-win64-preview.1).
-- Latest packaged Windows artifact: [`v0.5.0-jazzy-win64-preview.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.5.0-jazzy-win64-preview.1).
-- Current `v0.5.0` artifact: `Ros2ForUnity_jazzy_standalone_windows_x86_64.zip`. The release publishes a matching `.sha256.txt` and `.manifest.json` next to the zip.
+- Latest source release: [`v0.6.0-jazzy-win64-preview.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.6.0-jazzy-win64-preview.1).
+- Latest packaged Windows artifact: [`v0.6.0-jazzy-win64-preview.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.6.0-jazzy-win64-preview.1).
+- Current `v0.6.0` artifact: `Ros2ForUnity_jazzy_standalone_windows_x86_64.zip`. The release publishes a matching `.sha256.txt` and `.manifest.json` next to the zip.
 - Managed/native regression signal: `ros2cs_tests` reports 82 NUnit tests passed, 0 failed, 0 skipped.
 
 Not yet claimed:
 
-- Unity Load GREEN for the `v0.5.0` artifact: the prior Unity Load route is known, but the refreshed runtime artifact should be re-imported and rechecked before upgrading the claim.
+- Unity Load GREEN for the `v0.6.0` artifact: the prior Unity Load route is known, but the refreshed runtime artifact should be re-imported and rechecked before upgrading the claim.
 - Runtime Smoke GREEN: runtime pub/sub, service/client, graph discovery, sensor scene behavior, and repeated Play/Stop still need dedicated Unity-side validation on the refreshed artifact.
 - Product GREEN: Player export, release signing, deterministic artifact packaging, and broader scenario validation are still later gates.
 
@@ -82,9 +82,9 @@ RobotecAI pre-built [releases](https://github.com/RobotecAI/ros2-for-unity/relea
 
 For this fork's Jazzy Windows maintenance line, use the JianbinLiu-CFLab releases:
 
-- latest source release: [`v0.5.0-jazzy-win64-preview.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.5.0-jazzy-win64-preview.1)
-- latest packaged Windows artifact: [`v0.5.0-jazzy-win64-preview.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.5.0-jazzy-win64-preview.1)
-- previous: [`v0.4.0-jazzy-win64-preview.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.4.0-jazzy-win64-preview.1)
+- latest source release: [`v0.6.0-jazzy-win64-preview.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.6.0-jazzy-win64-preview.1)
+- latest packaged Windows artifact: [`v0.6.0-jazzy-win64-preview.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.6.0-jazzy-win64-preview.1)
+- previous: [`v0.5.0-jazzy-win64-preview.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.5.0-jazzy-win64-preview.1)
 
 ## Building
 

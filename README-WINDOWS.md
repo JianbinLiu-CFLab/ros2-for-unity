@@ -13,19 +13,19 @@ OS:        Windows 10 LTSC
 ROS 2:     Jazzy
 RMW:       rmw_fastrtps_cpp
 Unity:     6000.3.14f1
-R2FU:      v0.5.0-jazzy-win64-preview.1
-ros2cs:    v0.5.0-jazzy-preview.1
+R2FU:      v0.6.0-jazzy-win64-preview.1
+ros2cs:    v0.6.0-jazzy-preview.1
 Artifact:  Ros2ForUnity_jazzy_standalone_windows_x86_64.zip
-Release:   v0.5.0-jazzy-win64-preview.1
+Release:   v0.6.0-jazzy-win64-preview.1
 SHA256:    see the release .sha256.txt asset
 ```
 
 Current source release after the latest cleanup fixes:
 
 ```text
-R2FU:      v0.5.0-jazzy-win64-preview.1
-ros2cs:    v0.5.0-jazzy-preview.1
-Release:   v0.5.0-jazzy-win64-preview.1
+R2FU:      v0.6.0-jazzy-win64-preview.1
+ros2cs:    v0.6.0-jazzy-preview.1
+Release:   v0.6.0-jazzy-win64-preview.1
 Artifact:  uploaded with matching .sha256.txt and .manifest.json release assets
 ```
 
@@ -37,7 +37,7 @@ Validated gates:
 
 Not yet validated by this snapshot:
 
-- Unity Load smoke for the regenerated `v0.5.0` artifact.
+- Unity Load smoke for the regenerated `v0.6.0` artifact.
 - Runtime pub/sub or service/client smoke.
 - ROS graph discovery stability.
 - Sensor runtime behavior in a real scene.
