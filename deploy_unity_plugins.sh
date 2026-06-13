@@ -12,12 +12,23 @@ SCRIPT=$(readlink -f "$0")
 SCRIPTPATH=$(dirname "$SCRIPT")
 TIMING_NAMES=()
 TIMING_MS=()
-TOTAL_START_NS=$(date +%s%N)
+now_ns() {
+  if [ -n "${EPOCHREALTIME:-}" ]; then
+    local realtime="$EPOCHREALTIME"
+    local seconds="${realtime%%[.,]*}"
+    local micros="${realtime#*[.,]}"
+    printf '%s%06d000\n' "$seconds" "$((10#$micros))"
+  else
+    date +%s%N
+  fi
+}
+
+TOTAL_START_NS=$(now_ns)
 
 elapsed_ms() {
   local start_ns="$1"
   local end_ns
-  end_ns=$(date +%s%N)
+  end_ns=$(now_ns)
   echo $(((end_ns - start_ns) / 1000000))
 }
 
@@ -33,9 +44,9 @@ print_timing_summary() {
   echo "Ros2ForUnity plugin deployment timing summary:"
   local i
   for ((i = 0; i < ${#TIMING_NAMES[@]}; i++)); do
-    printf '  %-28s %9s\n' "${TIMING_NAMES[$i]}" "$(awk "BEGIN { printf \"%.3fs\", ${TIMING_MS[$i]} / 1000 }")"
+    printf '  %-28s %5d.%03ds\n' "${TIMING_NAMES[$i]}" "$((TIMING_MS[$i] / 1000))" "$((TIMING_MS[$i] % 1000))"
   done
-  printf '  %-28s %9s\n' "total" "$(awk "BEGIN { printf \"%.3fs\", $total_ms / 1000 }")"
+  printf '  %-28s %5d.%03ds\n' "total" "$((total_ms / 1000))" "$((total_ms % 1000))"
 }
 
 run_timed() {
@@ -43,7 +54,7 @@ run_timed() {
   shift
   local start_ns
   local status
-  start_ns=$(date +%s%N)
+  start_ns=$(now_ns)
   set +e
   "$@"
   status=$?
@@ -123,5 +134,5 @@ if [ -d "$installRoot/standalone" ] || [ -d "$installRoot/resources" ] || compge
 fi
 
 managed_count=$(find "${pluginDir}" -maxdepth 1 -type f | wc -l)
-native_count=$(find "${pluginDir}/Linux/x86_64/" -maxdepth 1 -type f | wc -l)
+native_count=$(find "${pluginDir}/Linux/x86_64/" -maxdepth 1 \( -type f -o -type l \) | wc -l)
 echo "Deployment file counts: managed=${managed_count} native=${native_count}"

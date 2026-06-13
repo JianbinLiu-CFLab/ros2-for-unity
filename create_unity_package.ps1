@@ -53,11 +53,36 @@ if (-Not (Test-Path -LiteralPath "$unity_path")) {
     throw "Unity editor executable '$unity_path' does not exist."
 }
 
-$unityVersionOutput = & "$unity_path" -version
-if ($LASTEXITCODE -ne 0) {
-    throw "Unity editor version check failed with exit code $LASTEXITCODE"
+function Get-UnityVersionFromPath {
+    param([Parameter(Mandatory=$true)][string]$UnityPath)
+    $normalizedPath = $UnityPath -replace '/', '\'
+    if ($normalizedPath -match '\\(?<version>[0-9]{4}\.[0-9]+\.[0-9]+f?[0-9]*)\\Editor\\Unity(?:\.exe)?$') {
+        return $Matches['version']
+    }
+    return $null
 }
-$unity_version = ($unityVersionOutput | Select-Object -First 1).Trim()
+
+$unity_version = Get-UnityVersionFromPath -UnityPath $unity_path
+if ([string]::IsNullOrEmpty($unity_version)) {
+    $unityVersionOutput = & "$unity_path" -version
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unity editor version check failed with exit code $LASTEXITCODE"
+    }
+    $unity_version = ($unityVersionOutput | Select-Object -First 1).Trim()
+}
+
+function Mirror-Directory {
+    param(
+        [Parameter(Mandatory=$true)][string]$Source,
+        [Parameter(Mandatory=$true)][string]$Destination
+    )
+    & robocopy $Source $Destination /MIR /R:1 /W:0 /NP /NFL /NDL /NJH /NJS
+    $robocopyExitCode = $LASTEXITCODE
+    if ($robocopyExitCode -gt 7) {
+        throw "robocopy failed from '$Source' to '$Destination' with exit code $robocopyExitCode"
+    }
+    $global:LASTEXITCODE = 0
+}
 
 if ($unity_version -match '^[0-9]{4}\.[0-9]*\.[0-9]*[f]?[0-9]*$') {
     Write-Host "Unity editor confirmed."
@@ -101,7 +126,7 @@ if(Test-Path -LiteralPath "$tmp_project_path") {
 
 # Copy asset
 Write-Host "Copying asset '$input_asset' to export..."
-Copy-Item -LiteralPath "$input_asset" -Destination (Join-Path -Path $assetsPath -ChildPath $package_name) -Recurse
+Mirror-Directory -Source "$input_asset" -Destination (Join-Path -Path $assetsPath -ChildPath $package_name)
 
 # Creating asset
 Write-Host "Saving unitypackage '$output_dir\$package_name.unitypackage'..."
