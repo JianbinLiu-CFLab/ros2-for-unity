@@ -7,9 +7,10 @@
 # - Updated the pin to include the rosidl_python path-length root-cause fix and v0.5.0 release baseline.
 # - Updated the pin to include the generated message finalizer shutdown crash fix.
 # - Updated the pin to include ros2cs lifecycle review follow-ups and service callback compile fix.
+# - Updated the pin to include qualified generated Array.Empty calls.
 #
 repositories:
   src/ros2cs/:
     type: git
     url:     https://github.com/JianbinLiu-CFLab/ros2cs.git
-    version: 6778163f16d03457b7925d1e5a6e97f430604c9b
+    version: 63819bf71350b0648eb0fe8c20816deff02323c4
