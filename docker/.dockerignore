@@ -1,0 +1,4 @@
+*
+!Dockerfile
+!entrypoint.sh
+!ci_smoke.sh

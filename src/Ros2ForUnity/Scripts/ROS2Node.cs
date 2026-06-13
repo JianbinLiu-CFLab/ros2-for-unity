@@ -30,7 +30,7 @@ public class ROS2Node : IDisposable
     public ROS2Clock clock { get; private set; }
     public string name { get; }
     private readonly object mutex = new object();
-    private bool disposed;
+    private volatile bool disposed;
 
     internal bool IsDisposed
     {
@@ -98,6 +98,12 @@ public class ROS2Node : IDisposable
 
     internal bool TryUpdateROSTimestamp(ref MessageWithHeader message)
     {
+        if (disposed)
+        {
+            return false;
+        }
+
+        ROS2Clock clockToUse = null;
         lock (mutex)
         {
             if (disposed || clock == null)
@@ -105,15 +111,21 @@ public class ROS2Node : IDisposable
                 return false;
             }
 
-            try
-            {
-                clock.UpdateROSTimestamp(ref message);
-                return true;
-            }
-            catch (InvalidOperationException)
-            {
-                return false;
-            }
+            clockToUse = clock;
+        }
+
+        try
+        {
+            clockToUse.UpdateROSTimestamp(ref message);
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
         }
     }
 

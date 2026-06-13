@@ -9,6 +9,7 @@ set -euo pipefail
 
 SCRIPT=$(readlink -f "$0")
 SCRIPTPATH=$(dirname "$SCRIPT")
+custom_repos="$SCRIPTPATH/ros2_for_unity_custom_messages.repos"
 
 if [ -z "${ROS_DISTRO:-}" ]; then
     echo "Can't detect ROS2 version. Source your ROS 2 distro first. Humble and Jazzy are the maintained targets; Foxy/Galactic are historical."
@@ -19,12 +20,16 @@ echo "========================================="
 echo "* Pulling ros2cs repository:"
 # Anchor vcs imports at the repository root so callers can run this script from any CWD.
 cd "$SCRIPTPATH"
-vcs import --input "$SCRIPTPATH/ros2cs.repos"
+vcs import --shallow --input "$SCRIPTPATH/ros2cs.repos"
 
 echo ""
 echo "========================================="
 echo "Pulling custom repositories:"
-vcs import --input "$SCRIPTPATH/ros2_for_unity_custom_messages.repos"
+if grep -qE '^[[:space:]]+type:' "$custom_repos"; then
+    vcs import --shallow --input "$custom_repos"
+else
+    echo "No custom repositories defined; skipping vcs import."
+fi
 
 echo ""
 echo "========================================="

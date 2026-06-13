@@ -34,6 +34,11 @@ public class ROS2UnityComponent : MonoBehaviour
     private List<ROS2Node> nodes;
     private List<INode> ros2csNodes; // For performance in spinning
     private List<Action> executableActions;
+    private HashSet<Action> executableActionSet;
+    private readonly List<Action> actionsSnapshot = new List<Action>();
+    private readonly List<INode> nodesSnapshot = new List<INode>();
+    private int collectionVersion = 0;
+    private int snapshotVersion = -1;
     private bool initialized = false;
     private volatile bool quitting = false;
     private bool disposed = false;
@@ -66,6 +71,7 @@ public class ROS2UnityComponent : MonoBehaviour
             nodes = new List<ROS2Node>();
             ros2csNodes = new List<INode>();
             executableActions = new List<Action>();
+            executableActionSet = new HashSet<Action>();
         }
     }
 
@@ -91,6 +97,7 @@ public class ROS2UnityComponent : MonoBehaviour
             ROS2Node node = new ROS2Node(name);
             nodes.Add(node);
             ros2csNodes.Add(node.node);
+            collectionVersion++;
             return node;
         }
     }
@@ -117,8 +124,12 @@ public class ROS2UnityComponent : MonoBehaviour
         {
             if (nodes != null)
             {
-                ros2csNodes.Remove(node.node);
                 removed = nodes.Remove(node);
+                bool removedRos2csNode = ros2csNodes.Remove(node.node);
+                if (removed || removedRos2csNode)
+                {
+                    collectionVersion++;
+                }
             }
         }
 
@@ -140,9 +151,10 @@ public class ROS2UnityComponent : MonoBehaviour
         lock (mutex)
         {
             ThrowIfDisposed();
-            if (!executableActions.Contains(executable))
+            if (executableActionSet.Add(executable))
             {
                 executableActions.Add(executable);
+                collectionVersion++;
             }
         }
     }
@@ -153,7 +165,11 @@ public class ROS2UnityComponent : MonoBehaviour
         {
             if (executableActions != null)
             {
-                executableActions.Remove(executable);
+                if (executableActionSet.Remove(executable))
+                {
+                    executableActions.Remove(executable);
+                    collectionVersion++;
+                }
             }
         }
     }
@@ -165,19 +181,25 @@ public class ROS2UnityComponent : MonoBehaviour
     {
         while (!quitting)
         {
-            List<Action> actionsSnapshot = null;
-            List<INode> nodesSnapshot = null;
+            bool hasSnapshot = false;
 
             lock (mutex)
             {
                 if (!quitting && !disposed && ros2forUnity != null && nodes != null && ros2forUnity.Ok())
                 {
-                    actionsSnapshot = new List<Action>(executableActions);
-                    nodesSnapshot = new List<INode>(ros2csNodes);
+                    if (snapshotVersion != collectionVersion)
+                    {
+                        actionsSnapshot.Clear();
+                        actionsSnapshot.AddRange(executableActions);
+                        nodesSnapshot.Clear();
+                        nodesSnapshot.AddRange(ros2csNodes);
+                        snapshotVersion = collectionVersion;
+                    }
+                    hasSnapshot = true;
                 }
             }
 
-            if (actionsSnapshot != null)
+            if (hasSnapshot)
             {
                 foreach (Action action in actionsSnapshot)
                 {
@@ -269,6 +291,7 @@ public class ROS2UnityComponent : MonoBehaviour
                 nodesToDispose = new List<ROS2Node>(nodes);
                 nodes.Clear();
                 ros2csNodes.Clear();
+                collectionVersion++;
             }
         }
 
@@ -312,8 +335,11 @@ public class ROS2UnityComponent : MonoBehaviour
             instance = ros2forUnity;
             ros2forUnity = null;
             executableActions = null;
+            executableActionSet = null;
             nodes = null;
             ros2csNodes = null;
+            actionsSnapshot.Clear();
+            nodesSnapshot.Clear();
         }
 
         if (instance != null)

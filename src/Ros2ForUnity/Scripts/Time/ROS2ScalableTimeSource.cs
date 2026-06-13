@@ -61,11 +61,13 @@ public class ROS2ScalableTimeSource : ITimeSource, IDisposable
     double readingSecs;
     double scaleAtRead;
     bool scaleChangedAtRead;
+    bool offsetAcquiredAtRead;
     lock (mutex)
     {
       readingSecs = lastReadingSecs;
       scaleAtRead = initialTimeScale;
       scaleChangedAtRead = timeScaleChanged;
+      offsetAcquiredAtRead = rosUnityTimeOffsetAcquired;
     }
 
     if (scaleAtRead == 1.0 && !scaleChangedAtRead)
@@ -75,7 +77,7 @@ public class ROS2ScalableTimeSource : ITimeSource, IDisposable
     }
     else
     {
-      double rosNow = GetRosNowSeconds();
+      double rosNow = offsetAcquiredAtRead ? 0.0 : GetRosNowSeconds();
       double adjustedTime;
       lock (mutex)
       {

@@ -69,15 +69,13 @@ function Copy-FilesWithRobocopy {
     if (-not (Test-Path -LiteralPath $Source)) {
         throw "Copy source directory does not exist: $Source"
     }
-    New-Item -ItemType Directory -Force -Path $Destination | Out-Null
-
     $robocopyArgs = @($Source, $Destination)
     $robocopyArgs += $Includes
     if ($Excludes.Count -gt 0) {
         $robocopyArgs += "/XF"
         $robocopyArgs += $Excludes
     }
-    $robocopyArgs += @("/R:2", "/W:1", "/NP", "/NFL", "/NDL", "/NJH", "/NJS")
+    $robocopyArgs += @("/R:1", "/W:0", "/NP", "/NFL", "/NDL", "/NJH", "/NJS")
 
     & robocopy @robocopyArgs
     $robocopyExitCode = $LASTEXITCODE
@@ -132,9 +130,6 @@ try {
 
         Write-Host "Plugins copied to: '$pluginDir'" -ForegroundColor Green
         $windowsPluginDir = Join-Path -Path $pluginDir -ChildPath "Windows\x86_64"
-        if(-not (Test-Path -LiteralPath $windowsPluginDir)) {
-            New-Item -ItemType Directory -Force -Path $windowsPluginDir | Out-Null
-        }
         Write-Host "Copying libraries to: '$windowsPluginDir' ..."
         $binDir = Join-Path -Path $installRoot -ChildPath "bin"
         if (-not (Test-Path -LiteralPath $binDir)) {

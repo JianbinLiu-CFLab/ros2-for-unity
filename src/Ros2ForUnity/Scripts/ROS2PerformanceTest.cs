@@ -31,10 +31,12 @@ public class ROS2PerformanceTest : MonoBehaviour
     private ROS2Node ros2Node;
     private IPublisher<sensor_msgs.msg.PointCloud2> perf_pub;
     private sensor_msgs.msg.PointCloud2 msg;
+    private MessageWithHeader msgWithHeader;
     private bool initialized = false;
     private volatile bool quitting = false;
     private Thread publishThread;
     private readonly object msgMutex = new object();
+    private static readonly byte[] pointDataPattern = CreatePointDataPattern();
 
     void Start()
     {
@@ -54,9 +56,9 @@ public class ROS2PerformanceTest : MonoBehaviour
 
     void OnValidate()
     {
-        NormalizeInspectorValues();
         if (!Application.isPlaying)
         {
+            NormalizeInspectorValues();
             return;
         }
         PrepMessage();
@@ -81,9 +83,11 @@ public class ROS2PerformanceTest : MonoBehaviour
                     perf_pub = ros2Node.CreateSensorPublisher<sensor_msgs.msg.PointCloud2>("perf_chatter");
                 }
                 sensor_msgs.msg.PointCloud2 messageToPublish;
+                MessageWithHeader headerToUpdate;
                 lock (msgMutex)
                 {
                     messageToPublish = msg;
+                    headerToUpdate = msgWithHeader;
                 }
 
                 if (messageToPublish == null)
@@ -92,14 +96,13 @@ public class ROS2PerformanceTest : MonoBehaviour
                     continue;
                 }
 
-                MessageWithHeader msgWithHeader = messageToPublish as MessageWithHeader;
-                if (msgWithHeader == null)
+                if (headerToUpdate == null)
                 {
                     Debug.LogError("PointCloud2 does not implement MessageWithHeader; cannot publish stamped performance message");
                     quitting = true;
                     continue;
                 }
-                if (!ros2Node.TryUpdateROSTimestamp(ref msgWithHeader))
+                if (!ros2Node.TryUpdateROSTimestamp(ref headerToUpdate))
                 {
                     Thread.Sleep(100);
                     continue;
@@ -171,6 +174,7 @@ public class ROS2PerformanceTest : MonoBehaviour
         lock (msgMutex)
         {
             msg = null;
+            msgWithHeader = null;
         }
     }
 
@@ -180,6 +184,14 @@ public class ROS2PerformanceTest : MonoBehaviour
         pf.Offset = off;
         pf.Datatype = dt;
         pf.Count = count;
+    }
+
+    private static byte[] CreatePointDataPattern()
+    {
+        float[] pointValues = { 1f, 2f, 3f, 100f };
+        byte[] pattern = new byte[sizeof(float) * 4];
+        System.Buffer.BlockCopy(pointValues, 0, pattern, 0, pattern.Length);
+        return pattern;
     }
 
     private void PrepMessage()
@@ -209,22 +221,16 @@ public class ROS2PerformanceTest : MonoBehaviour
         AssignField(ref newMsg.Fields[1], "y", 4, 7, 1);
         AssignField(ref newMsg.Fields[2], "z", 8, 7, 1);
         AssignField(ref newMsg.Fields[3], "intensity", 12, 7, 1);
-        float[] pointsArray = new float[count * newMsg.Fields.Length];
-
-        var floatIndex = 0;
-        for (int i = 0; i < count; ++i)
+        for (int offset = 0; offset < newMsg.Data.Length; offset += pointDataPattern.Length)
         {
-            float intensity = 100;
-            pointsArray[floatIndex++] = 1;
-            pointsArray[floatIndex++] = 2;
-            pointsArray[floatIndex++] = 3;
-            pointsArray[floatIndex++] = intensity;
+            System.Buffer.BlockCopy(pointDataPattern, 0, newMsg.Data, offset, pointDataPattern.Length);
         }
-        System.Buffer.BlockCopy(pointsArray, 0, newMsg.Data, 0, newMsg.Data.Length);
         newMsg.SetHeaderFrame("pc");
+        MessageWithHeader newMsgWithHeader = newMsg as MessageWithHeader;
         lock (msgMutex)
         {
             msg = newMsg;
+            msgWithHeader = newMsgWithHeader;
         }
     }
 }

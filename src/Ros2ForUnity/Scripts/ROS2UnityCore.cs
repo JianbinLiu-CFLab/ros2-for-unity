@@ -34,6 +34,11 @@ namespace ROS2
         private List<ROS2Node> nodes;
         private List<INode> ros2csNodes; // For performance in spinning
         private List<Action> executableActions;
+        private HashSet<Action> executableActionSet;
+        private readonly List<Action> actionsSnapshot = new List<Action>();
+        private readonly List<INode> nodesSnapshot = new List<INode>();
+        private int collectionVersion = 0;
+        private int snapshotVersion = -1;
         private volatile bool quitting = false;
         private bool disposed = false;
         private Thread executorThread;
@@ -58,6 +63,7 @@ namespace ROS2
                 nodes = new List<ROS2Node>();
                 ros2csNodes = new List<INode>();
                 executableActions = new List<Action>();
+                executableActionSet = new HashSet<Action>();
 
                 executorThread = new Thread(() => Tick());
                 executorThread.IsBackground = true;
@@ -81,6 +87,7 @@ namespace ROS2
                 ROS2Node node = new ROS2Node(name);
                 nodes.Add(node);
                 ros2csNodes.Add(node.node);
+                collectionVersion++;
                 return node;
             }
         }
@@ -107,8 +114,12 @@ namespace ROS2
             {
                 if (nodes != null)
                 {
-                    ros2csNodes.Remove(node.node);
                     removed = nodes.Remove(node);
+                    bool removedRos2csNode = ros2csNodes.Remove(node.node);
+                    if (removed || removedRos2csNode)
+                    {
+                        collectionVersion++;
+                    }
                 }
             }
 
@@ -128,9 +139,10 @@ namespace ROS2
             lock (mutex)
             {
                 ThrowIfDisposed();
-                if (!executableActions.Contains(executable))
+                if (executableActionSet.Add(executable))
                 {
                     executableActions.Add(executable);
+                    collectionVersion++;
                 }
             }
         }
@@ -141,7 +153,11 @@ namespace ROS2
             {
                 if (executableActions != null)
                 {
-                    executableActions.Remove(executable);
+                    if (executableActionSet.Remove(executable))
+                    {
+                        executableActions.Remove(executable);
+                        collectionVersion++;
+                    }
                 }
             }
         }
@@ -153,19 +169,25 @@ namespace ROS2
         {
             while (!quitting)
             {
-                List<Action> actionsSnapshot = null;
-                List<INode> nodesSnapshot = null;
+                bool hasSnapshot = false;
 
                 lock (mutex)
                 {
                     if (!quitting && !disposed && ros2forUnity != null && nodes != null && ros2forUnity.Ok())
                     {
-                        actionsSnapshot = new List<Action>(executableActions);
-                        nodesSnapshot = new List<INode>(ros2csNodes);
+                        if (snapshotVersion != collectionVersion)
+                        {
+                            actionsSnapshot.Clear();
+                            actionsSnapshot.AddRange(executableActions);
+                            nodesSnapshot.Clear();
+                            nodesSnapshot.AddRange(ros2csNodes);
+                            snapshotVersion = collectionVersion;
+                        }
+                        hasSnapshot = true;
                     }
                 }
 
-                if (actionsSnapshot != null)
+                if (hasSnapshot)
                 {
                     foreach (Action action in actionsSnapshot)
                     {
@@ -228,8 +250,11 @@ namespace ROS2
                 instance = ros2forUnity;
                 ros2forUnity = null;
                 executableActions = null;
+                executableActionSet = null;
                 nodes = null;
                 ros2csNodes = null;
+                actionsSnapshot.Clear();
+                nodesSnapshot.Clear();
             }
 
             if (instance != null)
@@ -271,6 +296,7 @@ namespace ROS2
                     nodesToDispose = new List<ROS2Node>(nodes);
                     nodes.Clear();
                     ros2csNodes.Clear();
+                    collectionVersion++;
                 }
             }
 

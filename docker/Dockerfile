@@ -15,24 +15,15 @@ ENV R2FU_WORKDIR=/workdir/ros2-for-unity
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
-    wget \
     git \
-    apt-transport-https \
     patchelf \
     dotnet-sdk-8.0 \
-    ffmpeg \
-    libsm6 \
-    libxext6 \
-    libgtk-3-0 \
     ros-${ROS_DISTRO}-test-msgs \
     ros-${ROS_DISTRO}-fastrtps \
     ros-${ROS_DISTRO}-rmw-fastrtps-cpp \
     ros-${ROS_DISTRO}-cyclonedds \
     ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN curl -s https://packagecloud.io/install/repositories/dirk-thomas/vcstool/script.deb.sh | bash \
-    && apt-get update \
+    && curl -s https://packagecloud.io/install/repositories/dirk-thomas/vcstool/script.deb.sh | bash \
     && apt-get install -y --no-install-recommends python3-vcstool \
     && rm -rf /var/lib/apt/lists/*
 

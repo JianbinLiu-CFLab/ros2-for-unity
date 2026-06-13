@@ -75,7 +75,19 @@ if [ ! -d "$INPUT_ASSET" ]; then
     exit 1
 fi
 
-UNITY_VERSION=$("$UNITY_PATH" -version | head -n 1)
+unity_version_from_path() {
+  local path="$1"
+  if [[ "$path" =~ /([0-9]{4}\.[0-9]+\.[0-9]+f?[0-9]*)/Editor/Unity$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  return 1
+}
+
+UNITY_VERSION=$(unity_version_from_path "$UNITY_PATH" || true)
+if [ -z "$UNITY_VERSION" ]; then
+  UNITY_VERSION=$("$UNITY_PATH" -version | head -n 1)
+fi
 SAFE_UNITY_VERSION=$(printf '%s' "$UNITY_VERSION" | tr -c 'A-Za-z0-9._-' '_')
 if [ -z "$SAFE_UNITY_VERSION" ]; then
     echo "Cannot derive a safe Unity version path from '$UNITY_VERSION'."
@@ -120,7 +132,13 @@ fi
 
 # Copy asset
 echo "Copying asset to export..."
-cp -r "$INPUT_ASSET" "$TMP_PROJECT_PATH/Assets/$PACKAGE_NAME"
+if command -v rsync >/dev/null 2>&1; then
+  mkdir -p "$TMP_PROJECT_PATH/Assets/$PACKAGE_NAME"
+  rsync --archive --delete "$INPUT_ASSET/" "$TMP_PROJECT_PATH/Assets/$PACKAGE_NAME/"
+else
+  rm -rf "$TMP_PROJECT_PATH/Assets/$PACKAGE_NAME"
+  cp -r "$INPUT_ASSET" "$TMP_PROJECT_PATH/Assets/$PACKAGE_NAME"
+fi
 
 # Creating asset
 echo "Saving unitypackage '$OUTPUT_DIR/$PACKAGE_NAME.unitypackage'..."

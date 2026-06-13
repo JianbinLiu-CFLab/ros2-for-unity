@@ -31,9 +31,14 @@ prepare_workspace() {
   echo ""
 
   rm -rf "$R2FU_CLONE_TMP"
-  git clone "$R2FU_REPO" "$R2FU_CLONE_TMP"
-  cd "$R2FU_CLONE_TMP"
-  git checkout "$R2FU_REF"
+  if [[ "$R2FU_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+    git clone "$R2FU_REPO" "$R2FU_CLONE_TMP"
+    cd "$R2FU_CLONE_TMP"
+    git checkout "$R2FU_REF"
+  else
+    git clone --depth 1 --branch "$R2FU_REF" "$R2FU_REPO" "$R2FU_CLONE_TMP"
+    cd "$R2FU_CLONE_TMP"
+  fi
 
   mkdir -p "$R2FU_WORKDIR"
   find "$R2FU_WORKDIR" -mindepth 1 -maxdepth 1 ! -name install -exec rm -rf {} +

@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using UnityEngine;
+using System.Text;
 
 namespace ROS2
 {
@@ -28,6 +29,7 @@ public class ROS2TalkerExample : MonoBehaviour
     private ROS2Node ros2Node;
     private IPublisher<std_msgs.msg.String> chatter_pub;
     private std_msgs.msg.String msg;
+    private readonly StringBuilder msgBuilder = new StringBuilder();
     private int i;
 
     void Start()
@@ -57,7 +59,10 @@ public class ROS2TalkerExample : MonoBehaviour
 
             i++;
             // Example-only hot path: reuse the message wrapper to avoid per-frame native allocations.
-            msg.Data = "Unity ROS2 sending: hello " + i;
+            msgBuilder.Clear();
+            msgBuilder.Append("Unity ROS2 sending: hello ");
+            msgBuilder.Append(i);
+            msg.Data = msgBuilder.ToString();
             chatter_pub.Publish(msg);
         }
     }

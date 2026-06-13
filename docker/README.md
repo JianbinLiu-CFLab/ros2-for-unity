@@ -5,6 +5,18 @@ Docker is a Linux/Jazzy build and smoke candidate for this fork. It does not bui
 
 Current status: Docker must pass the `r2fu-ci` command before it is treated as CI-candidate GREEN. Until then, Docker output is diagnostic evidence only.
 
+## Fastest CI-candidate path
+
+From the `docker/` directory:
+
+```bash
+. /opt/ros/jazzy/setup.bash
+./build_image.sh
+./run_container.sh r2fu-ci
+```
+
+The final command emits `R2FU_DOCKER_CI_SMOKE_PASS` when the build, tests, and smoke checks pass.
+
 ## Build docker image
 
 1. Source ROS2:
