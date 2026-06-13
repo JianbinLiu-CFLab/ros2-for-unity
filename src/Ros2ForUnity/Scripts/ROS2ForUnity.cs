@@ -213,23 +213,33 @@ internal class ROS2ForUnity : IDisposable
             string errMessage =
                 "ROS2 versions in 'ros2cs' and 'ros2-for-unity' metadata files are not the same. " +
                 "This is caused by mixing versions/builds.";
-            Debug.LogError(errMessage);
-            throw new InvalidOperationException(errMessage);
+            FailIntegrity(errMessage);
         }
 
         if(!IsStandalone() && ros2SourcedCodename != ros2FromRos2csMetadata) {
             string errMessage =
                 "ROS2 version in 'ros2cs' metadata doesn't match currently sourced version. " +
                 "This is caused by mixing versions/builds.";
-            Debug.LogError(errMessage);
-            throw new InvalidOperationException(errMessage);
+            FailIntegrity(errMessage);
         }
 
         if (IsStandalone() && !string.IsNullOrEmpty(ros2SourcedCodename)) {
             string errMessage = "You should not source ROS2 in 'ros2-for-unity' standalone build.";
-            Debug.LogError(errMessage);
-            throw new InvalidOperationException(errMessage);
+            FailIntegrity(errMessage);
         }
+    }
+
+    private static void FailIntegrity(string errMessage)
+    {
+        Debug.LogError(errMessage);
+#if UNITY_EDITOR
+        EditorApplication.isPlaying = false;
+        throw new InvalidOperationException(errMessage);
+#else
+        const int ROS_METADATA_MISMATCH_ERROR_CODE = 35;
+        Application.Quit(ROS_METADATA_MISMATCH_ERROR_CODE);
+        throw new InvalidOperationException(errMessage);
+#endif
     }
 
     public string GetROSVersionSourced()
@@ -272,6 +282,8 @@ internal class ROS2ForUnity : IDisposable
             Application.Quit(ROS_BAD_VERSION_CODE);
             throw new System.NotSupportedException(errMessage);
 #endif
+        } else if (ros2Codename.Equals("foxy") || ros2Codename.Equals("galactic")) {
+            Debug.LogWarning("You are using ROS2 " + ros2Codename + ", which has reached end of life.");
         } else if (ros2Codename.Equals("rolling") ) {
             Debug.LogWarning("You are using ROS2 rolling version. Bleeding edge version might not work correctly.");
         }
