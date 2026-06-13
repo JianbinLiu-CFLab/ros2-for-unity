@@ -77,38 +77,6 @@ public class ROS2ClientExample : MonoBehaviour
         }
     }
 
-    IEnumerator periodicCall()
-    {
-        while (ros2Unity != null && ros2Unity.Ok())
-        {
-            if (addTwoIntsClient == null)
-            {
-                yield return new WaitForSecondsRealtime(1);
-                continue;
-            }
-
-            while (ros2Unity != null && ros2Unity.Ok() && addTwoIntsClient != null && !addTwoIntsClient.IsServiceAvailable())
-            {
-                yield return new WaitForSecondsRealtime(1);
-            }
-
-            if (ros2Unity == null || !ros2Unity.Ok() || addTwoIntsClient == null)
-            {
-                yield break;
-            }
-
-            addTwoIntsReq request = new addTwoIntsReq();
-            request.A = Random.Range(0, 100);
-            request.B = Random.Range(0, 100);
-            // Example-only synchronous call. Production Unity code should prefer CallAsync to avoid blocking frames.
-            var response = addTwoIntsClient.Call(request);
-
-            Debug.Log("Got sync answer " + response.Sum);
-
-            yield return new WaitForSecondsRealtime(1);
-        }
-    }
-
     void Start()
     {
         ros2Unity = GetComponent<ROS2UnityComponent>();
@@ -148,11 +116,7 @@ public class ROS2ClientExample : MonoBehaviour
         {
             isRunning = true;
 
-            // Async calls
             StartCoroutine(RunTracked(periodicAsyncCall()));
-
-            // Sync calls
-            StartCoroutine(RunTracked(periodicCall()));
         }
     }
 

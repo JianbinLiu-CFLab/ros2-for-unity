@@ -38,7 +38,7 @@ public class UnityTimeSource : ITimeSource
     lastReadingSecs = Time.timeAsDouble;
   }
 
-  public void GetTime(out int seconds, out uint nanoseconds)
+  public bool GetTime(out int seconds, out uint nanoseconds)
   {
     double reading;
     if (mainThreadId == Thread.CurrentThread.ManagedThreadId)
@@ -51,12 +51,14 @@ public class UnityTimeSource : ITimeSource
     }
     else
     {
+      // Unity time can only be sampled on the main thread; background callers receive the last main-thread sample.
       lock (mutex)
       {
         reading = lastReadingSecs;
       }
     }
     TimeUtils.TimeFromTotalSeconds(reading, out seconds, out nanoseconds);
+    return true;
   }
 }
 

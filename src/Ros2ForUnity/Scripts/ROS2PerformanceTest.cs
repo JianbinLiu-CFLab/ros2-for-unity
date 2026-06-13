@@ -34,10 +34,17 @@ public class ROS2PerformanceTest : MonoBehaviour
     private bool initialized = false;
     private volatile bool quitting = false;
     private Thread publishThread;
+    private readonly object msgMutex = new object();
 
     void Start()
     {
         ros2Unity = GetComponent<ROS2UnityComponent>();
+        if (ros2Unity == null)
+        {
+            Debug.LogError("ROS2PerformanceTest requires ROS2UnityComponent on the same GameObject.");
+            return;
+        }
+
         NormalizeInspectorValues();
         if (Application.isPlaying)
         {
@@ -48,6 +55,10 @@ public class ROS2PerformanceTest : MonoBehaviour
     void OnValidate()
     {
         NormalizeInspectorValues();
+        if (!Application.isPlaying)
+        {
+            return;
+        }
         PrepMessage();
     }
 
@@ -62,19 +73,26 @@ public class ROS2PerformanceTest : MonoBehaviour
     {
         while(!quitting)
         {
-            if (ros2Unity.Ok())
+            if (ros2Unity != null && ros2Unity.Ok())
             {
                 if (ros2Node == null)
                 {
                     ros2Node = ros2Unity.CreateNode("ros2_unity_performance_test_node");
                     perf_pub = ros2Node.CreateSensorPublisher<sensor_msgs.msg.PointCloud2>("perf_chatter");
                 }
-                if (msg == null)
+                sensor_msgs.msg.PointCloud2 messageToPublish;
+                lock (msgMutex)
                 {
-                    PrepMessage();
+                    messageToPublish = msg;
                 }
 
-                MessageWithHeader msgWithHeader = msg as MessageWithHeader;
+                if (messageToPublish == null)
+                {
+                    Thread.Sleep(100);
+                    continue;
+                }
+
+                MessageWithHeader msgWithHeader = messageToPublish as MessageWithHeader;
                 if (msgWithHeader == null)
                 {
                     Debug.LogError("PointCloud2 does not implement MessageWithHeader; cannot publish stamped performance message");
@@ -86,7 +104,7 @@ public class ROS2PerformanceTest : MonoBehaviour
                     Thread.Sleep(100);
                     continue;
                 }
-                perf_pub.Publish(msg);
+                perf_pub.Publish(messageToPublish);
                 if (interval_ms > 0)
                 {
                     Thread.Sleep(interval_ms);
@@ -101,6 +119,11 @@ public class ROS2PerformanceTest : MonoBehaviour
 
     void FixedUpdate()
     {
+        if (ros2Unity == null)
+        {
+            return;
+        }
+
         if (!initialized)
         {
             publishThread = new Thread(() => Publish());
@@ -130,11 +153,25 @@ public class ROS2PerformanceTest : MonoBehaviour
             catch (System.Exception e)
             {
                 Debug.LogException(e);
+                if (perf_pub != null)
+                {
+                    try
+                    {
+                        perf_pub.Dispose();
+                    }
+                    catch (System.Exception disposeException)
+                    {
+                        Debug.LogException(disposeException);
+                    }
+                }
             }
         }
         perf_pub = null;
         ros2Node = null;
-        msg = null;
+        lock (msgMutex)
+        {
+            msg = null;
+        }
     }
 
     private void AssignField(ref sensor_msgs.msg.PointField pf, string n, uint off, byte dt, uint count)
@@ -151,7 +188,7 @@ public class ROS2PerformanceTest : MonoBehaviour
         uint count = (uint)messageSize; //point per message
         uint fieldsSize = 16;
         uint rowSize = count * fieldsSize;
-        msg = new sensor_msgs.msg.PointCloud2()
+        sensor_msgs.msg.PointCloud2 newMsg = new sensor_msgs.msg.PointCloud2()
         {
             Height = 1,
             Width = count,
@@ -162,17 +199,17 @@ public class ROS2PerformanceTest : MonoBehaviour
             Data = new byte[rowSize * 1]
         };
         uint pointFieldCount = 4;
-        msg.Fields = new sensor_msgs.msg.PointField[pointFieldCount];
+        newMsg.Fields = new sensor_msgs.msg.PointField[pointFieldCount];
         for (int i = 0; i < pointFieldCount; ++i)
         {
-            msg.Fields[i] = new sensor_msgs.msg.PointField();
+            newMsg.Fields[i] = new sensor_msgs.msg.PointField();
         }
 
-        AssignField(ref msg.Fields[0], "x", 0, 7, 1);
-        AssignField(ref msg.Fields[1], "y", 4, 7, 1);
-        AssignField(ref msg.Fields[2], "z", 8, 7, 1);
-        AssignField(ref msg.Fields[3], "intensity", 12, 7, 1);
-        float[] pointsArray = new float[count * msg.Fields.Length];
+        AssignField(ref newMsg.Fields[0], "x", 0, 7, 1);
+        AssignField(ref newMsg.Fields[1], "y", 4, 7, 1);
+        AssignField(ref newMsg.Fields[2], "z", 8, 7, 1);
+        AssignField(ref newMsg.Fields[3], "intensity", 12, 7, 1);
+        float[] pointsArray = new float[count * newMsg.Fields.Length];
 
         var floatIndex = 0;
         for (int i = 0; i < count; ++i)
@@ -183,8 +220,12 @@ public class ROS2PerformanceTest : MonoBehaviour
             pointsArray[floatIndex++] = 3;
             pointsArray[floatIndex++] = intensity;
         }
-        System.Buffer.BlockCopy(pointsArray, 0, msg.Data, 0, msg.Data.Length);
-        msg.SetHeaderFrame("pc");
+        System.Buffer.BlockCopy(pointsArray, 0, newMsg.Data, 0, newMsg.Data.Length);
+        newMsg.SetHeaderFrame("pc");
+        lock (msgMutex)
+        {
+            msg = newMsg;
+        }
     }
 }
 

@@ -21,7 +21,8 @@ namespace ROS2
 /// </summary>
 public interface ITimeSource
 {
-  void GetTime(out int seconds, out uint nanoseconds);
+  /// <returns>True when a valid timestamp was acquired; false when the source is not currently usable.</returns>
+  bool GetTime(out int seconds, out uint nanoseconds);
 }
 
 }  // namespace ROS2

@@ -105,8 +105,15 @@ public class ROS2Node : IDisposable
                 return false;
             }
 
-            clock.UpdateROSTimestamp(ref message);
-            return true;
+            try
+            {
+                clock.UpdateROSTimestamp(ref message);
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
         }
     }
 
