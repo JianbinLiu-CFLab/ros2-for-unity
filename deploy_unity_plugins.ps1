@@ -86,11 +86,149 @@ function Copy-FilesWithRobocopy {
     $global:LASTEXITCODE = 0
 }
 
+function Copy-DirectoryTreeWithRobocopy {
+    param(
+        [Parameter(Mandatory=$true)][string]$Source,
+        [Parameter(Mandatory=$true)][string]$Destination
+    )
+
+    if (-not (Test-Path -LiteralPath $Source)) {
+        throw "Copy source directory does not exist: $Source"
+    }
+
+    & robocopy $Source $Destination /E /R:1 /W:0 /NP /NFL /NDL /NJH /NJS
+    $robocopyExitCode = $LASTEXITCODE
+    # Robocopy success/informational codes are 0-7.
+    if ($robocopyExitCode -gt 7) {
+        throw "robocopy failed from '$Source' to '$Destination' with exit code $robocopyExitCode"
+    }
+    $global:LASTEXITCODE = 0
+}
+
+function Copy-FilePreservingRelativePath {
+    param(
+        [Parameter(Mandatory=$true)][string]$SourceRoot,
+        [Parameter(Mandatory=$true)][string]$DestinationRoot,
+        [Parameter(Mandatory=$true)][string]$RelativePath
+    )
+
+    $source = Join-Path -Path $SourceRoot -ChildPath $RelativePath
+    if (-not (Test-Path -LiteralPath $source)) {
+        return
+    }
+
+    $destination = Join-Path -Path $DestinationRoot -ChildPath $RelativePath
+    $destinationDir = Split-Path -Parent $destination
+    New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
+    Copy-Item -LiteralPath $source -Destination $destination -Force
+}
+
+function Copy-RosRuntimeShareClosure {
+    param(
+        [Parameter(Mandatory=$true)][string]$SourceShare,
+        [Parameter(Mandatory=$true)][string]$DestinationShare
+    )
+
+    $runtimePackages = @(
+        "ament_index_cpp",
+        "fastcdr",
+        "fastdds",
+        "foonathan_memory_vendor",
+        "rcpputils",
+        "rcutils",
+        "rmw",
+        "rmw_dds_common",
+        "rmw_fastrtps_cpp",
+        "rmw_fastrtps_shared_cpp",
+        "rmw_implementation",
+        "rmw_implementation_cmake",
+        "rmw_security_common",
+        "rosidl_buffer_backend",
+        "rosidl_dynamic_typesupport",
+        "rosidl_dynamic_typesupport_fastrtps",
+        "rosidl_runtime_c",
+        "rosidl_runtime_cpp",
+        "rosidl_typesupport_c",
+        "rosidl_typesupport_cpp",
+        "rosidl_typesupport_fastrtps_c",
+        "rosidl_typesupport_fastrtps_cpp",
+        "rosidl_typesupport_introspection_c",
+        "rosidl_typesupport_introspection_cpp"
+    )
+    $resourceIndexes = @(
+        "packages",
+        "package_run_dependencies",
+        "parent_prefix_path",
+        "rmw_output_patterns",
+        "rmw_output_prefixes",
+        "rmw_typesupport",
+        "rmw_typesupport_c",
+        "rmw_typesupport_cpp",
+        "rosidl_typesupport_c",
+        "rosidl_typesupport_cpp"
+    )
+
+    foreach ($packageName in $runtimePackages) {
+        foreach ($resourceIndex in $resourceIndexes) {
+            Copy-FilePreservingRelativePath `
+                -SourceRoot $SourceShare `
+                -DestinationRoot $DestinationShare `
+                -RelativePath (Join-Path -Path "ament_index\resource_index\$resourceIndex" -ChildPath $packageName)
+        }
+    }
+}
+
 function Assert-RequiredFile {
     param([Parameter(Mandatory=$true)][string]$Path)
     if (-not (Test-Path -LiteralPath $Path)) {
         throw "Required deployed file is missing: $Path"
     }
+}
+
+function Find-RosRuntimeDll {
+    param([Parameter(Mandatory=$true)][string]$FileName)
+
+    $candidateDirs = New-Object System.Collections.Generic.List[string]
+    if (-not [string]::IsNullOrWhiteSpace($env:ROS2_ROOT)) {
+        $candidateDirs.Add((Join-Path -Path $env:ROS2_ROOT -ChildPath "bin")) | Out-Null
+    }
+    foreach ($pathDir in ($env:PATH -split [System.IO.Path]::PathSeparator)) {
+        if (-not [string]::IsNullOrWhiteSpace($pathDir)) {
+            $candidateDirs.Add($pathDir) | Out-Null
+        }
+    }
+
+    foreach ($dir in ($candidateDirs | Select-Object -Unique)) {
+        $candidate = Join-Path -Path $dir -ChildPath $FileName
+        if (Test-Path -LiteralPath $candidate) {
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
+function Find-RosRootCandidates {
+    $roots = New-Object System.Collections.Generic.List[string]
+    if (-not [string]::IsNullOrWhiteSpace($env:ROS2_ROOT)) {
+        $roots.Add($env:ROS2_ROOT) | Out-Null
+    }
+
+    foreach ($pathDir in ($env:PATH -split [System.IO.Path]::PathSeparator)) {
+        if ([string]::IsNullOrWhiteSpace($pathDir)) {
+            continue
+        }
+        if ((Split-Path -Leaf $pathDir) -ne "bin") {
+            continue
+        }
+
+        $root = Split-Path -Parent $pathDir
+        if (Test-Path -LiteralPath (Join-Path -Path $root -ChildPath "share\ament_index")) {
+            $roots.Add($root) | Out-Null
+        }
+    }
+
+    return $roots | Select-Object -Unique
 }
 
 function Print-Help {
@@ -155,9 +293,49 @@ try {
             }
         }
 
+        $assetRoot = Split-Path -Parent $pluginDir
+        $shareDestination = Join-Path -Path $windowsPluginDir -ChildPath "share"
+        foreach ($ros2Root in Find-RosRootCandidates) {
+            $ros2Share = Join-Path -Path $ros2Root -ChildPath "share"
+            if (Test-Path -LiteralPath $ros2Share) {
+                Invoke-Timed "ROS2 runtime share deploy" {
+                    Copy-RosRuntimeShareClosure -SourceShare $ros2Share -DestinationShare $shareDestination
+                }
+                break
+            }
+        }
+
+        $rosRootRuntimeDlls = @(
+            "class_loader.dll",
+            "fastdds-3.6.dll",
+            "rcl_logging_implementation.dll",
+            "rosidl_buffer_backend_registry.dll"
+        )
+        $rosRootRuntimeSources = @()
+        foreach ($dllName in $rosRootRuntimeDlls) {
+            $runtimeDll = Find-RosRuntimeDll $dllName
+            if ($null -ne $runtimeDll) {
+                $rosRootRuntimeSources += $runtimeDll
+            }
+        }
+        if ($rosRootRuntimeSources.Count -gt 0) {
+            Invoke-Timed "ROS2 root runtime DLL deploy" {
+                foreach ($runtimeDll in $rosRootRuntimeSources) {
+                    Copy-Item -LiteralPath $runtimeDll -Destination $windowsPluginDir -Force
+                }
+            }
+        }
+
         if ($hasStandaloneDir -or $hasResourcesDir -or (Test-Path -LiteralPath (Join-Path -Path $binDir -ChildPath "rcl.dll"))) {
             Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "rcl.dll")
+            Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "class_loader.dll")
+            Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "fastdds-3.6.dll")
             Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "rmw_implementation.dll")
+            Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "rosidl_buffer_backend_registry.dll")
+            Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "rcl_logging_implementation.dll")
+            Assert-RequiredFile (Join-Path -Path $shareDestination -ChildPath "ament_index\resource_index\packages\rosidl_buffer_backend")
+            Assert-RequiredFile (Join-Path -Path $shareDestination -ChildPath "ament_index\resource_index\packages\rmw_implementation")
+            Assert-RequiredFile (Join-Path -Path $shareDestination -ChildPath "ament_index\resource_index\rmw_typesupport\rmw_fastrtps_cpp")
             $yamlDll = Join-Path -Path $windowsPluginDir -ChildPath "yaml.dll"
             $yamlCppDll = Join-Path -Path $windowsPluginDir -ChildPath "yaml-cpp.dll"
             if (-not ((Test-Path -LiteralPath $yamlDll) -or (Test-Path -LiteralPath $yamlCppDll))) {

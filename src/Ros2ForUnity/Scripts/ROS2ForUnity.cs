@@ -16,6 +16,7 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -35,12 +36,16 @@ internal class ROS2ForUnity : IDisposable
     private static int referenceCount = 0;
     private static bool pathConfigured = false;
     private static string ros2ForUnityAssetFolderName = "Ros2ForUnity";
-    private static readonly string[] supportedVersionsOrdered = { "foxy", "galactic", "humble", "jazzy", "rolling" };
+    private static readonly string[] supportedVersionsOrdered = { "foxy", "galactic", "humble", "jazzy", "lyrical", "rolling" };
     private static readonly HashSet<string> supportedVersions = new HashSet<string>(supportedVersionsOrdered);
     private static readonly string supportedVersionsString = String.Join(", ", supportedVersionsOrdered);
     private static readonly Lazy<string> ros2ForUnityPath = new Lazy<string>(ComputeRos2ForUnityPath);
     private static readonly Lazy<string> pluginPath = new Lazy<string>(ComputePluginPath);
     private static ConsoleCancelEventHandler consoleCancelHandler;
+
+    [DllImport("ucrtbase.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+    private static extern int _putenv_s(string name, string value);
+
 #if UNITY_EDITOR
     private static bool editorHandlersRegistered = false;
 #endif
@@ -98,6 +103,15 @@ internal class ROS2ForUnity : IDisposable
     private static string GetEnvPathVariableValue()
     {
         return Environment.GetEnvironmentVariable(GetEnvPathVariableName());
+    }
+
+    private static void SetProcessEnvironmentVariable(string name, string value)
+    {
+        Environment.SetEnvironmentVariable(name, value);
+        if (GetOS() == Platform.Windows)
+        {
+            _putenv_s(name, value);
+        }
     }
 
     public static string GetRos2ForUnityPath()
@@ -173,7 +187,7 @@ internal class ROS2ForUnity : IDisposable
 
         if (String.IsNullOrEmpty(currentPath))
         {
-            Environment.SetEnvironmentVariable(GetEnvPathVariableName(), pluginPath);
+            SetProcessEnvironmentVariable(GetEnvPathVariableName(), pluginPath);
             pathConfigured = true;
             return;
         }
@@ -191,8 +205,64 @@ internal class ROS2ForUnity : IDisposable
             }
         }
 
-        Environment.SetEnvironmentVariable(GetEnvPathVariableName(), pluginPath + envPathSep + currentPath);
+        SetProcessEnvironmentVariable(GetEnvPathVariableName(), pluginPath + envPathSep + currentPath);
         pathConfigured = true;
+    }
+
+    private static void SetStandalonePrefixPath()
+    {
+        string prefixPath = GetRos2ForUnityPath();
+        string pluginPrefixPath = GetPluginPath();
+        if (Directory.Exists(Path.Combine(pluginPrefixPath, "share")))
+        {
+            prefixPath = pluginPrefixPath;
+        }
+        string currentPrefixPath = Environment.GetEnvironmentVariable("AMENT_PREFIX_PATH");
+        char envPathSep = GetOS() == Platform.Windows ? ';' : ':';
+
+        if (String.IsNullOrEmpty(currentPrefixPath))
+        {
+            SetProcessEnvironmentVariable("AMENT_PREFIX_PATH", prefixPath);
+            return;
+        }
+
+        StringComparison comparison = GetOS() == Platform.Windows
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        foreach (string entry in currentPrefixPath.Split(envPathSep))
+        {
+            if (String.Equals(entry.Trim(), prefixPath, comparison))
+            {
+                return;
+            }
+        }
+
+        SetProcessEnvironmentVariable("AMENT_PREFIX_PATH", prefixPath + envPathSep + currentPrefixPath);
+    }
+
+    private static void SetStandaloneRmwImplementation()
+    {
+        if (String.IsNullOrEmpty(Environment.GetEnvironmentVariable("RMW_IMPLEMENTATION")))
+        {
+            SetProcessEnvironmentVariable("RMW_IMPLEMENTATION", "rmw_fastrtps_cpp");
+        }
+    }
+
+    private static void SetStandaloneRosDistro(string ros2Codename)
+    {
+        if (String.IsNullOrEmpty(Environment.GetEnvironmentVariable("ROS_DISTRO")))
+        {
+            SetProcessEnvironmentVariable("ROS_DISTRO", ros2Codename);
+        }
+    }
+
+    private static void SetStandaloneRcutilsConsoleMode()
+    {
+        if (String.IsNullOrEmpty(Environment.GetEnvironmentVariable("RCUTILS_COLORIZED_OUTPUT")))
+        {
+            SetProcessEnvironmentVariable("RCUTILS_COLORIZED_OUTPUT", "0");
+        }
     }
 
     public bool IsStandalone()
@@ -422,6 +492,13 @@ internal class ROS2ForUnity : IDisposable
                 if (!pathConfigured)
                 {
                     SetEnvPathVariable();
+                }
+                if (IsStandalone())
+                {
+                    SetStandaloneRosDistro(currentRos2Version);
+                    SetStandalonePrefixPath();
+                    SetStandaloneRmwImplementation();
+                    SetStandaloneRcutilsConsoleMode();
                 }
             } else {
                 // For foxy, it is necessary to use modified version of librcpputils to resolve custom msgs packages.
