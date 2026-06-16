@@ -212,8 +212,13 @@ internal class ROS2ForUnity : IDisposable
     private static void SetStandalonePrefixPath()
     {
         string prefixPath = GetRos2ForUnityPath();
+        string streamingAssetsPrefixPath = Path.Combine(Application.streamingAssetsPath, ros2ForUnityAssetFolderName);
         string pluginPrefixPath = GetPluginPath();
-        if (Directory.Exists(Path.Combine(pluginPrefixPath, "share")))
+        if (Directory.Exists(Path.Combine(streamingAssetsPrefixPath, "share")))
+        {
+            prefixPath = streamingAssetsPrefixPath;
+        }
+        else if (Directory.Exists(Path.Combine(pluginPrefixPath, "share")))
         {
             prefixPath = pluginPrefixPath;
         }

@@ -295,11 +295,18 @@ try {
 
         $assetRoot = Split-Path -Parent $pluginDir
         $shareDestination = Join-Path -Path $windowsPluginDir -ChildPath "share"
+        $assetInstallRoot = Split-Path -Parent $assetRoot
+        $legacyNestedStreamingAssets = Join-Path -Path $assetRoot -ChildPath "StreamingAssets"
+        $streamingAssetsShareDestination = Join-Path -Path $assetInstallRoot -ChildPath "StreamingAssets\Ros2ForUnity\share"
+        if (Test-Path -LiteralPath $legacyNestedStreamingAssets) {
+            Remove-Item -LiteralPath $legacyNestedStreamingAssets -Recurse -Force
+        }
         foreach ($ros2Root in Find-RosRootCandidates) {
             $ros2Share = Join-Path -Path $ros2Root -ChildPath "share"
             if (Test-Path -LiteralPath $ros2Share) {
                 Invoke-Timed "ROS2 runtime share deploy" {
                     Copy-RosRuntimeShareClosure -SourceShare $ros2Share -DestinationShare $shareDestination
+                    Copy-RosRuntimeShareClosure -SourceShare $ros2Share -DestinationShare $streamingAssetsShareDestination
                 }
                 break
             }
@@ -336,6 +343,9 @@ try {
             Assert-RequiredFile (Join-Path -Path $shareDestination -ChildPath "ament_index\resource_index\packages\rosidl_buffer_backend")
             Assert-RequiredFile (Join-Path -Path $shareDestination -ChildPath "ament_index\resource_index\packages\rmw_implementation")
             Assert-RequiredFile (Join-Path -Path $shareDestination -ChildPath "ament_index\resource_index\rmw_typesupport\rmw_fastrtps_cpp")
+            Assert-RequiredFile (Join-Path -Path $streamingAssetsShareDestination -ChildPath "ament_index\resource_index\packages\rosidl_buffer_backend")
+            Assert-RequiredFile (Join-Path -Path $streamingAssetsShareDestination -ChildPath "ament_index\resource_index\packages\rmw_implementation")
+            Assert-RequiredFile (Join-Path -Path $streamingAssetsShareDestination -ChildPath "ament_index\resource_index\rmw_typesupport\rmw_fastrtps_cpp")
             $yamlDll = Join-Path -Path $windowsPluginDir -ChildPath "yaml.dll"
             $yamlCppDll = Join-Path -Path $windowsPluginDir -ChildPath "yaml-cpp.dll"
             if (-not ((Test-Path -LiteralPath $yamlDll) -or (Test-Path -LiteralPath $yamlCppDll))) {
