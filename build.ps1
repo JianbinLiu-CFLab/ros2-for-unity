@@ -162,14 +162,16 @@ try {
     $ros2csItem = Get-Item "$scriptPath\src\ros2cs" -Force
     $ros2csPath = if ($ros2csItem.Target -and $ros2csItem.Target.Count -gt 0) { $ros2csItem.Target[0] } else { $ros2csItem.FullName }
     $ros2csSourcePath = Join-Path -Path $ros2csPath -ChildPath "src"
-    $ros2csInstallPath = Join-Path -Path $ros2csPath -ChildPath "install"
+    $ros2csInstallPath = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_INSTALL_BASE)) {
+        Join-Path -Path $ros2csPath -ChildPath "install"
+    } else { $Env:R2FU_ROS2CS_INSTALL_BASE }
     # Keep generated ROS/MSVC object paths short while allowing CI or local scripts to override the roots.
     $ros2csBuildBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_BUILD_BASE)) { Get-DefaultWorkPath "r2fu_b" } else { $Env:R2FU_ROS2CS_BUILD_BASE }
     $ros2csLogBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_LOG_BASE)) { Get-DefaultWorkPath "r2fu_l" } else { $Env:R2FU_ROS2CS_LOG_BASE }
     $pythonExecutable = if ([string]::IsNullOrEmpty($Env:COLCON_PYTHON_EXECUTABLE)) {
-        Resolve-RequiredCommand "python" "Run this script from a sourced ROS 2 Jazzy environment, or set COLCON_PYTHON_EXECUTABLE."
+        Resolve-RequiredCommand "python" "Run this script from a sourced ROS 2 environment, or set COLCON_PYTHON_EXECUTABLE."
     } else { $Env:COLCON_PYTHON_EXECUTABLE }
-    $colconExecutable = Resolve-RequiredCommand "colcon" "Run this script from a sourced ROS 2 Jazzy environment so colcon is on PATH."
+    $colconExecutable = Resolve-RequiredCommand "colcon" "Run this script from a sourced ROS 2 environment so colcon is on PATH."
 
     $colconArgs = @(
         "--log-base", $ros2csLogBase,
