@@ -42,9 +42,10 @@ internal class ROS2ForUnity : IDisposable
     private static readonly Lazy<string> ros2ForUnityPath = new Lazy<string>(ComputeRos2ForUnityPath);
     private static readonly Lazy<string> pluginPath = new Lazy<string>(ComputePluginPath);
     private static ConsoleCancelEventHandler consoleCancelHandler;
+    private const string Ros2csSpinFallbackEnvVar = "ROS2CS_SPIN_FALLBACK";
 
-    [DllImport("ucrtbase.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-    private static extern int _putenv_s(string name, string value);
+    [DllImport("ucrtbase.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+    private static extern int _wputenv_s(string name, string value);
 
 #if UNITY_EDITOR
     private static bool editorHandlersRegistered = false;
@@ -110,7 +111,14 @@ internal class ROS2ForUnity : IDisposable
         Environment.SetEnvironmentVariable(name, value);
         if (GetOS() == Platform.Windows)
         {
-            _putenv_s(name, value);
+            // ROS 2 Windows binaries use the dynamic UCRT, so update the CRT environment
+            // as well as the managed process environment for native getenv callers.
+            int result = _wputenv_s(name, value);
+            if (result != 0)
+            {
+                throw new InvalidOperationException(
+                    "Failed to set Windows CRT environment variable '" + name + "' (ucrtbase _wputenv_s returned " + result + ")");
+            }
         }
     }
 
@@ -259,6 +267,20 @@ internal class ROS2ForUnity : IDisposable
         if (String.IsNullOrEmpty(Environment.GetEnvironmentVariable("ROS_DISTRO")))
         {
             SetProcessEnvironmentVariable("ROS_DISTRO", ros2Codename);
+        }
+    }
+
+    private static void SetStandaloneRos2csSpinFallback(string ros2Codename)
+    {
+        if (!String.Equals(ros2Codename, "lyrical", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (String.IsNullOrEmpty(Environment.GetEnvironmentVariable(Ros2csSpinFallbackEnvVar)))
+        {
+            SetProcessEnvironmentVariable(Ros2csSpinFallbackEnvVar, "direct");
+            Debug.Log("ROS2CS spin fallback enabled for Lyrical standalone runtime.");
         }
     }
 
@@ -501,6 +523,7 @@ internal class ROS2ForUnity : IDisposable
                 if (IsStandalone())
                 {
                     SetStandaloneRosDistro(currentRos2Version);
+                    SetStandaloneRos2csSpinFallback(currentRos2Version);
                     SetStandalonePrefixPath();
                     SetStandaloneRmwImplementation();
                     SetStandaloneRcutilsConsoleMode();

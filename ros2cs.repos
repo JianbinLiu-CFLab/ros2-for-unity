@@ -9,9 +9,10 @@
 # - Updated the pin to include ros2cs lifecycle review follow-ups and service callback compile fix.
 # - Updated the pin to include qualified generated Array.Empty calls.
 # - Updated the pin to include Phase 17 Unity-safe graph wait and lightweight node options.
+# - Updated the pin to include Phase 18 Lyrical spin fallback review fixes.
 #
 repositories:
   src/ros2cs/:
     type: git
     url:     https://github.com/JianbinLiu-CFLab/ros2cs.git
-    version: 632a084f0ffcc52c3b3cb5878cd1136141b98f07
+    version: d40c834b5a387838b89f372c6fbcca6706b4b9d1
