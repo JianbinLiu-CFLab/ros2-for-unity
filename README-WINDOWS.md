@@ -64,7 +64,7 @@ It is necessary to complete the `ros2cs` Windows prerequisites for the same bran
 
 ### Steps
 
-* Make sure [long paths on Windows are enabled](https://github.com/RobotecAI/ros2cs/blob/master/README-WINDOWS.md#important-notices)
+* Make sure [long paths on Windows are enabled](https://github.com/JianbinLiu-CFLab/ros2cs/blob/main/README-WINDOWS.md#important-notices)
 * Make sure you open a Visual Studio Developer PowerShell compatible with the installed ROS 2 Jazzy toolchain.
 * Prefer Ninja generator builds on Windows. Newer Visual Studio generator names may not be supported by the Jazzy-pinned CMake/colcon stack.
 * Clone this project.
@@ -139,6 +139,12 @@ R2FU_UNITY_LOAD_SMOKE_PASS
 
 - If a standalone build is unexpectedly slow during native DLL copy or artifact staging, check antivirus/Defender real-time scanning first. This repository does not change Defender policy automatically; any exclusions should be a deliberate local or CI-machine decision.
 
+- If `pull_repositories.ps1` exits non-zero, fix the reported network, authentication, or existing `src\ros2cs` checkout problem before building. The script does not update an existing checkout in place; remove or move `src\ros2cs` when you intentionally want to re-import the pinned repositories.
+
+- If `build.ps1` exits non-zero, do not package the existing `install\asset` output as a fresh artifact. Re-run the failed command after fixing the reported error, or use `-clean_install` to remove stale staged asset files before rebuilding.
+
+- If packaging creates no `.unitypackage` or zip artifact, treat the artifact as missing. Re-run package creation after confirming `install\asset\Ros2ForUnity` exists and came from a successful build.
+
 - If you see one of the following errors:
 ><script_name> is not digitally signed
 
@@ -169,7 +175,7 @@ pip uninstall numpy
 pip install numpy
 ```
 
-**If no solution of your problem is present in the section above, please make sure to check out `ros2cs` [Troubleshooting section](https://github.com/RobotecAI/ros2cs/blob/master/README-WINDOWS.md#troubleshooting)**
+**If no solution of your problem is present in the section above, please make sure to check out this fork's `ros2cs` [Troubleshooting section](https://github.com/JianbinLiu-CFLab/ros2cs/blob/main/README-WINDOWS.md#troubleshooting). RobotecAI upstream documentation is useful historical reference, but this fork's Jazzy Windows toolchain may differ.**
 
 ## OS-Specific usage remarks
 
