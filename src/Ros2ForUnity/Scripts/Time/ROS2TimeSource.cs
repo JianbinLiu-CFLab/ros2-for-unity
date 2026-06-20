@@ -20,7 +20,7 @@ namespace ROS2
 {
 
 /// <summary>
-/// ros2 time source (system time by default).
+/// ROS 2 clock time source that uses ROS system time by default and follows use_sim_time when the underlying ROS clock is configured for simulated time.
 /// </summary>
 public class ROS2TimeSource : ITimeSource, IDisposable
 {

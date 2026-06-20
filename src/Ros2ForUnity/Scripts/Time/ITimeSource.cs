@@ -21,7 +21,10 @@ namespace ROS2
 /// </summary>
 public interface ITimeSource
 {
+  /// <param name="seconds">Whole seconds of the acquired timestamp, or 0 when this method returns false.</param>
+  /// <param name="nanoseconds">Nanoseconds within the second, or 0 when this method returns false.</param>
   /// <returns>True when a valid timestamp was acquired; false when the source is not currently usable.</returns>
+  /// <remarks>Callers must not use the out values when this method returns false.</remarks>
   bool GetTime(out int seconds, out uint nanoseconds);
 }
 

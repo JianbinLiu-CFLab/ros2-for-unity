@@ -20,9 +20,12 @@ namespace ROS2
 {
 
 /// <summary>
-/// DateTime based clock that has resolution increased using Stopwatch.
-/// DateTime is used to synchronize since Stopwatch tends to drift.
+/// UTC wall-clock time source anchored to the Unix epoch.
 /// </summary>
+/// <remarks>
+/// DateTime.UtcNow provides the epoch alignment, while Stopwatch improves short-term resolution
+/// between periodic wall-clock resynchronizations.
+/// </remarks>
 public class DotnetTimeSource : ITimeSource
 {
     private static readonly DateTime UnixEpoch =

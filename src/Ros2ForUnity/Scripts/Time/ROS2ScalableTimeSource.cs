@@ -21,8 +21,13 @@ namespace ROS2
 {
 
 /// <summary>
-/// ros2 time source (system time by default).
+/// ROS-aligned time source that preserves ROS/system time until Unity timeScale changes.
 /// </summary>
+/// <remarks>
+/// Before the first timeScale change, timestamps come directly from the ROS 2 clock. After timeScale
+/// changes once, the source permanently switches to Unity scaled time plus the ROS-time offset captured
+/// at that transition, avoiding timeline jumps while respecting Unity time scaling.
+/// </remarks>
 public class ROS2ScalableTimeSource : ITimeSource, IDisposable
 {
   private readonly object mutex = new object();
@@ -35,6 +40,7 @@ public class ROS2ScalableTimeSource : ITimeSource, IDisposable
   private bool rosUnityTimeOffsetAcquired = false;
   private bool initialTimeScaleAcquired = false;
   private bool timeScaleChanged = false;
+  private bool timeScaleChangeLogged = false;
 
   public ROS2ScalableTimeSource()
   {
@@ -59,32 +65,28 @@ public class ROS2ScalableTimeSource : ITimeSource, IDisposable
     }
 
     double readingSecs;
-    double scaleAtRead;
     bool scaleChangedAtRead;
-    bool offsetAcquiredAtRead;
     lock (mutex)
     {
       readingSecs = lastReadingSecs;
-      scaleAtRead = initialTimeScale;
       scaleChangedAtRead = timeScaleChanged;
-      offsetAcquiredAtRead = rosUnityTimeOffsetAcquired;
     }
 
-    if (scaleAtRead == 1.0 && !scaleChangedAtRead)
+    if (!scaleChangedAtRead)
     {
       // Until Unity timeScale changes, preserve the default ROS/system clock behavior.
       TimeUtils.TimeFromTotalSeconds(GetRosNowSeconds(), out seconds, out nanoseconds);
     }
     else
     {
-      double rosNow = offsetAcquiredAtRead ? 0.0 : GetRosNowSeconds();
       double adjustedTime;
       lock (mutex)
       {
+        readingSecs = lastReadingSecs;
         if (!rosUnityTimeOffsetAcquired)
         {
           rosUnityTimeOffsetAcquired = true;
-          rosUnityTimeOffset = rosNow - readingSecs;
+          rosUnityTimeOffset = GetRosNowSeconds() - readingSecs;
         }
         adjustedTime = readingSecs + rosUnityTimeOffset;
       }
@@ -119,6 +121,11 @@ public class ROS2ScalableTimeSource : ITimeSource, IDisposable
       {
         // Once scaling has changed, keep using the adjusted timeline to avoid jumping back to system time.
         timeScaleChanged = true;
+        if (!timeScaleChangeLogged)
+        {
+          timeScaleChangeLogged = true;
+          Debug.Log("ROS2ScalableTimeSource switched to Unity-scaled time after Time.timeScale changed.");
+        }
       }
 
       lastReadingSecs = Time.timeAsDouble;
