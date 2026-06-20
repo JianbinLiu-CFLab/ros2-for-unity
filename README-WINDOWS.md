@@ -97,7 +97,7 @@ It is necessary to complete the `ros2cs` Windows prerequisites for the same bran
   * Build scripts print a phase timing summary covering metadata generation, ros2cs build, Unity asset staging, plugin deploy, and metadata copy.
   * Use `-quiet` to reduce live colcon terminal output while keeping logs under the configured colcon log base. Use `-console_direct` to preserve the chatty `console_direct+` output.
   * `build.ps1` warns when the local `src\ros2cs` checkout does not match `ros2cs.repos`; pass `-strict_pin` to make the mismatch fail the build.
-  * Windows standalone deployment validates required managed and native files after copy, including `ros2cs_common.dll`, `ros2cs_core.dll`, `rcl.dll`, and `rmw_implementation.dll`.
+  * Windows standalone deployment validates required managed and native closure files after copy, including `ros2cs_common.dll`, `ros2cs_core.dll`, `rcl.dll`, `class_loader.dll`, `fastdds*.dll`, `rmw_implementation.dll`, `rcl_logging_implementation.dll`, `rosidl_buffer_backend_registry.dll`, and the required ament index entries.
 * Unity Asset is ready to import into your Unity project. You can find it in `install/asset/` directory.
 * (optionally) To create `.unitypackage` in `install/unity_package`
   ```powershell

@@ -252,9 +252,9 @@ try {
 
     Invoke-Timed "metadata generation" {
         if($standalone) {
-          & "python" "$scriptPath\src\scripts\metadata_generator.py" --standalone
+          & "python" "$scriptPath\src\scripts\metadata_generator.py" --standalone --ros2cs-path $ros2csPath
         } else {
-          & "python" "$scriptPath\src\scripts\metadata_generator.py"
+          & "python" "$scriptPath\src\scripts\metadata_generator.py" --ros2cs-path $ros2csPath
         }
         if ($LASTEXITCODE -ne 0) {
             throw "metadata_generator.py failed with exit code $LASTEXITCODE"
@@ -317,6 +317,14 @@ try {
     }
 
     Invoke-Timed "metadata copy" {
+        if($standalone) {
+          & "python" "$scriptPath\src\scripts\metadata_generator.py" --standalone --ros2cs-path $ros2csPath --plugins-dir $pluginPath
+        } else {
+          & "python" "$scriptPath\src\scripts\metadata_generator.py" --ros2cs-path $ros2csPath --plugins-dir $pluginPath
+        }
+        if ($LASTEXITCODE -ne 0) {
+            throw "metadata_generator.py failed with exit code $LASTEXITCODE"
+        }
         $metadataSource = Join-Path -Path $scriptPath -ChildPath "src\Ros2ForUnity\metadata_ros2cs.xml"
         $metadataWindowsDestination = Join-Path -Path $scriptPath -ChildPath "install\asset\Ros2ForUnity\Plugins\Windows\x86_64"
         $metadataPluginDestination = Join-Path -Path $scriptPath -ChildPath "install\asset\Ros2ForUnity\Plugins"

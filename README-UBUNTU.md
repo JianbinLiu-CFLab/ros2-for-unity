@@ -45,6 +45,7 @@ Start with installation of dependencies. Make sure to complete each step of this
     ```
     * You can add `--clean-install` to remove the R2FU install tree plus the ros2cs build, log, and install roots before deploying.
     * `build.sh` warns when the local `src/ros2cs` checkout does not match `ros2cs.repos`; pass `--strict-pin` to make the mismatch fail the build.
+    * Linux standalone deployment validates required managed and native closure files after copy, including `ros2cs_common.dll`, `ros2cs_core.dll`, `librcl.so*`, `libclass_loader.so*`, `libfastdds.so*`, `librmw_implementation.so*`, `librcl_logging_implementation.so*`, `librosidl_buffer_backend_registry.so*`, and the required ament index entries.
 * Unity Asset is ready to import into your Unity project. You can find it in `install/asset/` directory.
 * (optionally) To create `.unitypackage` in `install/unity_package`
     ```bash

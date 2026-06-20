@@ -204,9 +204,9 @@ if [ "$CLEAN_INSTALL" == 1 ]; then
 fi
 
 if [ "$STANDALONE" == 1 ]; then
-  run_timed "metadata generation" python3 "$SCRIPTPATH/src/scripts/metadata_generator.py" --standalone
+  run_timed "metadata generation" python3 "$SCRIPTPATH/src/scripts/metadata_generator.py" --standalone --ros2cs-path "$ROS2CS_PATH"
 else
-  run_timed "metadata generation" python3 "$SCRIPTPATH/src/scripts/metadata_generator.py"
+  run_timed "metadata generation" python3 "$SCRIPTPATH/src/scripts/metadata_generator.py" --ros2cs-path "$ROS2CS_PATH"
 fi
 
 # Delegate to ros2cs' own build entrypoint so R2FU does not duplicate colcon/toolchain policy.
@@ -219,6 +219,11 @@ if run_timed "ros2cs build" "$ROS2CS_PATH/build.sh" "${ROS2CS_OPTIONS[@]}"; then
     fi
     run_timed "plugin deploy" "$SCRIPTPATH/deploy_unity_plugins.sh" "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/" "$ROS2CS_INSTALL_BASE"
     metadata_start_ns=$(date +%s%N)
+    if [ "$STANDALONE" == 1 ]; then
+      python3 "$SCRIPTPATH/src/scripts/metadata_generator.py" --standalone --ros2cs-path "$ROS2CS_PATH" --plugins-dir "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins"
+    else
+      python3 "$SCRIPTPATH/src/scripts/metadata_generator.py" --ros2cs-path "$ROS2CS_PATH" --plugins-dir "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins"
+    fi
     for metadata_target in \
       "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/Linux/x86_64/metadata_ros2cs.xml" \
       "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/metadata_ros2cs.xml"; do
