@@ -39,6 +39,7 @@ internal class ROS2ForUnity : IDisposable
 {
     private static bool isInitialized = false;
     private static readonly object initMutex = new object();
+    private static bool shutdownInProgress = false;
     private static int referenceCount = 0;
     // Prevents repeatedly prepending the plugin path across multiple ROS2ForUnity instances.
     private static bool pathConfigured = false;
@@ -561,6 +562,11 @@ internal class ROS2ForUnity : IDisposable
     {
         lock (initMutex)
         {
+            if (shutdownInProgress)
+            {
+                throw new InvalidOperationException("Ros2 For Unity is shutting down and cannot create a new context reference.");
+            }
+
             if (isInitialized)
             {
                 referenceCount++;
@@ -586,6 +592,9 @@ internal class ROS2ForUnity : IDisposable
                 // SetStandaloneRosDistro must stay after CheckROSSupport/CheckIntegrity.
                 SetStandaloneRosDistro(currentRos2Version);
                 SetStandaloneRos2csSpinFallback(currentRos2Version);
+                SetStandalonePrefixPath();
+                SetStandaloneRmwImplementation();
+                SetStandaloneRcutilsConsoleMode();
             }
             if (GetOS() == Platform.Windows) {
                 // Windows version can run standalone, modifies PATH to ensure all plugins visibility.
@@ -595,24 +604,12 @@ internal class ROS2ForUnity : IDisposable
                     // persists across Play/Stop when Unity domain reload is disabled.
                     SetEnvPathVariable();
                 }
-                if (standaloneBuild)
-                {
-                    SetStandalonePrefixPath();
-                    SetStandaloneRmwImplementation();
-                    SetStandaloneRcutilsConsoleMode();
-                }
             } else {
                 // For foxy, it is necessary to use modified version of librcpputils to resolve custom msgs packages.
                 ROS2.GlobalVariables.absolutePath = GetPluginPath() + "/";
                 if (currentRos2Version == "foxy") {
                     ROS2.GlobalVariables.preloadLibrary = true;
                     ROS2.GlobalVariables.preloadLibraryName = "librcpputils.so";
-                }
-                if (standaloneBuild)
-                {
-                    SetStandalonePrefixPath();
-                    SetStandaloneRmwImplementation();
-                    SetStandaloneRcutilsConsoleMode();
                 }
             }
 
@@ -663,6 +660,7 @@ internal class ROS2ForUnity : IDisposable
     /// </summary>
     internal void DestroyROS2ForUnity()
     {
+        bool shouldShutdown = false;
         lock (initMutex)
         {
             if (!ownsReference)
@@ -678,8 +676,13 @@ internal class ROS2ForUnity : IDisposable
 
             if (referenceCount == 0)
             {
-                ShutdownShared();
+                shouldShutdown = TryBeginShutdownLocked();
             }
+        }
+
+        if (shouldShutdown)
+        {
+            CompleteShutdownShared();
         }
     }
 
@@ -694,12 +697,47 @@ internal class ROS2ForUnity : IDisposable
 
     private static void ShutdownShared()
     {
+        bool shouldShutdown = false;
+        lock (initMutex)
+        {
+            shouldShutdown = TryBeginShutdownLocked();
+        }
+
+        if (shouldShutdown)
+        {
+            CompleteShutdownShared();
+        }
+    }
+
+    private static bool TryBeginShutdownLocked()
+    {
+        if (shutdownInProgress)
+        {
+            return false;
+        }
+
+        shutdownInProgress = true;
+        if (!isInitialized)
+        {
+            referenceCount = 0;
+            shutdownInProgress = false;
+            return false;
+        }
+
+        return true;
+    }
+
+    private static void CompleteShutdownShared()
+    {
+        // Executor joins must happen outside initMutex. Executor Tick() can call Ok(), which also
+        // takes initMutex; joining here while holding it would create a fragile lock-order inversion.
         ROS2UnityComponent.StopAllExecutorsForRosShutdown();
         lock (initMutex)
         {
             if (!isInitialized)
             {
                 referenceCount = 0;
+                shutdownInProgress = false;
                 return;
             }
 
@@ -719,6 +757,7 @@ internal class ROS2ForUnity : IDisposable
             {
                 isInitialized = false;
                 referenceCount = 0;
+                shutdownInProgress = false;
                 UnregisterCtrlCHandlerStatic();
             }
         }
