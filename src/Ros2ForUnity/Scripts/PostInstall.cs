@@ -19,6 +19,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Xml;
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.Build;
@@ -33,6 +34,17 @@ namespace ROS2
 internal class PostInstall : IPostprocessBuildWithReport
 {
     public int callbackOrder { get { return 0; } }
+
+    private static void ValidateMetadataXml(string path)
+    {
+        try {
+            var metadata = new XmlDocument { XmlResolver = null };
+            metadata.Load(path);
+        } catch (Exception e) {
+            throw new BuildFailedException("Cannot copy ROS2 metadata after build. Invalid XML: " + path + ". " + e.Message);
+        }
+    }
+
     public void OnPostprocessBuild(BuildReport report)
     {
         var r2fuMetadataName = "metadata_ros2_for_unity.xml";
@@ -57,6 +69,8 @@ internal class PostInstall : IPostprocessBuildWithReport
                 "Cannot copy ROS2 metadata after build. Missing source: " +
                 (!File.Exists(r2fuMeta) ? r2fuMeta : r2csMeta));
         }
+        ValidateMetadataXml(r2fuMeta);
+        ValidateMetadataXml(r2csMeta);
 
         FileUtil.CopyFileOrDirectory(
             r2fuMeta, dataDir + "/" + r2fuMetadataName);
