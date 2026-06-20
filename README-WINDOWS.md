@@ -101,9 +101,9 @@ It is necessary to complete the `ros2cs` Windows prerequisites for the same bran
 * Unity Asset is ready to import into your Unity project. You can find it in `install/asset/` directory.
 * (optionally) To create `.unitypackage` in `install/unity_package`
   ```powershell
-  create_unity_package.ps1
+  .\create_unity_package.ps1 -unity_path <your-path-to-unity-editor-executable>
   ```
-  > *NOTE* Please provide path to your Unity executable when prompted. Unity license is required. In case your Unity license has expired, the `create_unity_package.ps1` won't throw any errors but `Ros2ForUnity.unitypackage` won't be generated too.
+  > *NOTE* Unity license is required. The script removes stale package output before export, verifies that Unity produced a non-empty package, and writes a matching `.sha256.txt` next to the `.unitypackage`. By default the package filename includes the current ROS distro and `windows_x86_64`, for example `Ros2ForUnity_jazzy_windows_x86_64.unitypackage`.
 
 ## Unity Load smoke
 

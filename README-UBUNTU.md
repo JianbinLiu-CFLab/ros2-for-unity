@@ -49,9 +49,9 @@ Start with installation of dependencies. Make sure to complete each step of this
 * Unity Asset is ready to import into your Unity project. You can find it in `install/asset/` directory.
 * (optionally) To create `.unitypackage` in `install/unity_package`
     ```bash
-    create_unity_package.sh -u <your-path-to-unity-editor-executable>
+    ./create_unity_package.sh -u <your-path-to-unity-editor-executable>
     ```
-    > *NOTE* Unity license is required. 
+    > *NOTE* Unity license is required. The script removes stale package output before export, verifies that Unity produced a non-empty package, and writes a matching `.sha256.txt` next to the `.unitypackage`. By default the package filename includes the current ROS distro and `linux_x86_64`, for example `Ros2ForUnity_jazzy_linux_x86_64.unitypackage`.
 
 ## OS-Specific usage remarks
 
