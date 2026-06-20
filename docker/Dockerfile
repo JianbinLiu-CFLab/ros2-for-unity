@@ -8,6 +8,7 @@
 
 ARG ROS2_DISTRO=jazzy
 FROM ros:${ROS2_DISTRO}-ros-base
+# .NET 8 LTS matches the current ros2cs build target; upgrade only after Unity/R2FU plugin compatibility is verified.
 ARG DOTNET_SDK_PACKAGE=dotnet-sdk-8.0
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 

@@ -1,6 +1,11 @@
 // Copyright 2019-2021 Robotec.ai.
 // Modifications Copyright (c) 2026 Jianbin Liu.
 //
+// Fork modifications:
+// - Replaced eager Awake-style initialization with LazyConstruct() for early caller access.
+// - Added delayed FixedUpdate executor startup and live-component shutdown coordination.
+// - Added deterministic, idempotent shutdown across OnApplicationQuit and OnDestroy.
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -30,6 +35,10 @@ namespace ROS2
 /// </summary>
 public class ROS2UnityComponent : MonoBehaviour
 {
+    private const int SpinIntervalMilliseconds = 2;
+    private const double SpinTimeoutSeconds = 0.0001; // 100 us; keeps spin non-blocking relative to the 2 ms tick interval.
+    private static readonly TimeSpan ExecutorJoinTimeout = TimeSpan.FromSeconds(2); // Allow up to 2 s for Tick() to observe quitting and exit.
+
     private static readonly object liveComponentsMutex = new object();
     private static readonly HashSet<ROS2UnityComponent> liveComponents = new HashSet<ROS2UnityComponent>();
 
@@ -40,16 +49,19 @@ public class ROS2UnityComponent : MonoBehaviour
     private HashSet<Action> executableActionSet;
     private readonly List<Action> actionsSnapshot = new List<Action>();
     private readonly List<INode> nodesSnapshot = new List<INode>();
+    // Snapshot versions let Tick() reuse arrays unless node/executable collections changed.
     private int collectionVersion = 0;
     private int snapshotVersion = -1;
     private bool initialized = false;
+    // volatile: Tick() reads this lock-free in its loop condition after StopExecutor() sets it.
     private volatile bool quitting = false;
     private bool disposed = false;
     private Thread executorThread;
-    private int interval = 2;  // Spinning / executor interval in ms
     private readonly object mutex = new object();
-    private double spinTimeout = 0.0001;
 
+    /// <summary>
+    /// Returns whether this component has a live ROS2ForUnity context and has not been shut down.
+    /// </summary>
     public bool Ok()
     {
         lock (mutex)
@@ -62,6 +74,9 @@ public class ROS2UnityComponent : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Lazily initializes ROS2ForUnity state for callers that access Ok() or CreateNode() before Start().
+    /// </summary>
     private void LazyConstruct()
     {
         lock (mutex)
@@ -78,6 +93,9 @@ public class ROS2UnityComponent : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Ensures the component is initialized when Unity starts the Behaviour.
+    /// </summary>
     void Start()
     {
         // Executor spinning begins on the first FixedUpdate, so subscriptions created in Start
@@ -85,6 +103,9 @@ public class ROS2UnityComponent : MonoBehaviour
         LazyConstruct();
     }
 
+    /// <summary>
+    /// Creates a uniquely named ROS 2 node managed by this component.
+    /// </summary>
     public ROS2Node CreateNode(string name)
     {
         LazyConstruct();
@@ -107,16 +128,25 @@ public class ROS2UnityComponent : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Removes and disposes a node previously created by this component.
+    /// </summary>
     public void RemoveNode(ROS2Node node)
     {
         RemoveNode(node, true);
     }
 
+    /// <summary>
+    /// Removes a node from this component without disposing it.
+    /// </summary>
     public void DetachNode(ROS2Node node)
     {
         RemoveNode(node, false);
     }
 
+    /// <summary>
+    /// Removes a node and optionally disposes it.
+    /// </summary>
     public void RemoveNode(ROS2Node node, bool dispose)
     {
         if (node == null)
@@ -164,6 +194,9 @@ public class ROS2UnityComponent : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Removes an executable action from the background tick loop.
+    /// </summary>
     public void UnregisterExecutable(Action executable)
     {
         lock (mutex)
@@ -222,7 +255,7 @@ public class ROS2UnityComponent : MonoBehaviour
                 {
                     try
                     {
-                        Ros2cs.SpinOnce(nodesSnapshot, spinTimeout);
+                        Ros2cs.SpinOnce(nodesSnapshot, SpinTimeoutSeconds);
                     }
                     catch (Exception e)
                     {
@@ -233,10 +266,13 @@ public class ROS2UnityComponent : MonoBehaviour
                     }
                 }
             }
-            Thread.Sleep(interval);
+            Thread.Sleep(SpinIntervalMilliseconds);
         }
     }
 
+    /// <summary>
+    /// Starts the executor from Unity's fixed-timestep loop so ROS spin cadence follows physics updates.
+    /// </summary>
     void FixedUpdate()
     {
         // Start on the first fixed-timestep update so executor spin timing follows Unity physics cadence.
@@ -255,6 +291,7 @@ public class ROS2UnityComponent : MonoBehaviour
 
             quitting = false;
             executorThread = new Thread(() => Tick());
+            // Background thread: does not prevent process exit if Shutdown() is missed during teardown.
             executorThread.IsBackground = true;
             initialized = true;
             threadToStart = executorThread;
@@ -274,7 +311,7 @@ public class ROS2UnityComponent : MonoBehaviour
 
         if (threadToJoin != null && threadToJoin != Thread.CurrentThread)
         {
-            if (!threadToJoin.Join(TimeSpan.FromSeconds(2)))
+            if (!threadToJoin.Join(ExecutorJoinTimeout))
             {
                 Debug.LogWarning("ROS2UnityComponent executor thread did not stop within 2 seconds");
             }
@@ -397,11 +434,17 @@ public class ROS2UnityComponent : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Unity normal-exit hook; Shutdown() is idempotent and also called from OnDestroy.
+    /// </summary>
     void OnApplicationQuit()
     {
         Shutdown();
     }
 
+    /// <summary>
+    /// Unity object-destruction hook for mid-play destruction and editor domain reload paths.
+    /// </summary>
     void OnDestroy()
     {
         Shutdown();

@@ -89,6 +89,9 @@ public static class Transformations
         return new Quaternion(-quaternion.z, quaternion.x, -quaternion.y, quaternion.w);
     }
 
+    /// <summary>
+    /// Converts a Unity rotation to ROS in place.
+    /// </summary>
     public static void Unity2Ros(ref Quaternion quaternion)
     {
         var z = quaternion.z;
@@ -99,6 +102,9 @@ public static class Transformations
         quaternion.z = -y;
     }
 
+    /// <summary>
+    /// Converts a Unity vector to ROS in place.
+    /// </summary>
     public static void Unity2Ros(ref Vector3 vector)
     {
         var z = vector.z;

@@ -1,6 +1,11 @@
 // Copyright 2019-2021 Robotec.ai.
 // Modifications Copyright (c) 2026 Jianbin Liu.
 //
+// Fork modifications:
+// - Adds tracked coroutine execution for async AddTwoInts calls.
+// - Adds timeout/fault/cancel handling around service requests.
+// - Keeps the example inside the ROS2 namespace and removes the example node on destruction.
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -25,32 +30,37 @@ namespace ROS2
 {
 
 /// <summary>
-/// An example class provided for testing of basic ROS2 client
+/// Calls the <c>example_interfaces/srv/AddTwoInts</c> service named <c>add_two_ints</c>.
+/// Pair it with <see cref="ROS2ServiceExample"/> or a ROS 2 service server; successful responses are logged in Unity.
 /// </summary>
 public class ROS2ClientExample : MonoBehaviour
 {
     private const float ServiceCallTimeoutSeconds = 5.0f;
+    private const float ServicePollIntervalSeconds = 1.0f; // Poll interval while waiting for service availability or between calls.
+    private const int MinRequestOperand = 0;
+    private const int MaxRequestOperandExclusive = 100;
     private ROS2UnityComponent ros2Unity;
     private ROS2Node ros2Node;
     private IClient<addTwoIntsReq, addTwoIntsResp> addTwoIntsClient;
     private bool isRunning = false;
     private int runningCoroutines = 0;
     private Task<addTwoIntsResp> asyncTask;
-    private readonly WaitForSecondsRealtime waitOneSecond = new WaitForSecondsRealtime(1);
+    private readonly WaitForSecondsRealtime servicePollWait = new WaitForSecondsRealtime(ServicePollIntervalSeconds);
 
+    // Coroutine: waits for service availability, sends one AddTwoInts request per iteration, then waits before the next call.
     IEnumerator periodicAsyncCall()
     {
         while (ros2Unity != null && ros2Unity.Ok())
         {
             if (addTwoIntsClient == null)
             {
-                yield return waitOneSecond;
+                yield return servicePollWait;
                 continue;
             }
 
             while (ros2Unity != null && ros2Unity.Ok() && addTwoIntsClient != null && !addTwoIntsClient.IsServiceAvailable())
             {
-                yield return waitOneSecond;
+                yield return servicePollWait;
             }
 
             if (ros2Unity == null || !ros2Unity.Ok() || addTwoIntsClient == null)
@@ -59,8 +69,9 @@ public class ROS2ClientExample : MonoBehaviour
             }
 
             addTwoIntsReq request = new addTwoIntsReq();
-            request.A = Random.Range(0, 100);
-            request.B = Random.Range(0, 100);
+            // Arbitrary operands; any non-negative integers work for AddTwoInts.
+            request.A = Random.Range(MinRequestOperand, MaxRequestOperandExclusive);
+            request.B = Random.Range(MinRequestOperand, MaxRequestOperandExclusive);
             
             asyncTask = addTwoIntsClient.CallAsync(request);
             float deadline = Time.realtimeSinceStartup + ServiceCallTimeoutSeconds;
@@ -72,7 +83,7 @@ public class ROS2ClientExample : MonoBehaviour
             if (!asyncTask.IsCompleted)
             {
                 Debug.LogWarning("ROS2ClientExample: async service call timed out.");
-                yield return waitOneSecond;
+                yield return servicePollWait;
                 continue;
             }
             if (asyncTask.IsFaulted)
@@ -84,7 +95,7 @@ public class ROS2ClientExample : MonoBehaviour
                 Debug.Log("Got async answer " + asyncTask.Result.Sum);
             }
             
-            yield return waitOneSecond;
+            yield return servicePollWait;
         }
     }
 
@@ -134,6 +145,7 @@ public class ROS2ClientExample : MonoBehaviour
         }
     }
 
+    // Wraps a coroutine to track active count and reset isRunning when all coroutines finish.
     private IEnumerator RunTracked(IEnumerator routine)
     {
         runningCoroutines++;
@@ -156,6 +168,7 @@ public class ROS2ClientExample : MonoBehaviour
     {
         if (ros2Unity != null && ros2Node != null)
         {
+            // RemoveNode disposes clients owned by the node.
             ros2Unity.RemoveNode(ros2Node);
         }
         addTwoIntsClient = null;

@@ -29,10 +29,15 @@ namespace ROS2
 public abstract class ISensor : MonoBehaviour
 {
     /// <summary>
+    /// Default sensor frequency in Hz used by inspector-created sensors.
+    /// </summary>
+    private const double DefaultDesiredUpdateFrequencyHz = 25.0;
+
+    /// <summary>
     /// The desired update frequency for the sensor. The base class refreshes desiredFrameTime when this value
     /// changes at runtime, but subclasses must still use desiredFrameTime in HasNewData() to apply the limit.
     /// </summary>
-    public double desiredUpdateFreq = 25.0;
+    public double desiredUpdateFreq = DefaultDesiredUpdateFrequencyHz;
 
     /// <summary>
     /// The frameID corresponds to the ROS frame_id element of the header and is important
@@ -89,7 +94,9 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
     /// Desired seconds between sensor readings. The base class calculates this value but does not gate HasNewData().
     /// </summary>
     protected double desiredFrameTime = 0.0;
-    private const double minimumFrequency = 0.001;
+
+    // Avoid division by zero and near-zero update intervals when users edit desiredUpdateFreq in the Inspector.
+    private const double MinimumFrequencyHz = 0.001;
     private double cachedDesiredUpdateFreq = Double.NaN;
     private Publisher<T> publisher;
     private ROS2UnityComponent ros2UnityComponent;
@@ -164,6 +171,7 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
 
     /// <summary>
     /// Sensor sampling and timestamping run on Unity main thread in Update(); this executor-thread method only publishes a cached reading.
+    /// The message header timestamp is therefore acquisition/update time, not executor publish time.
     /// </summary>
     internal void ExecutorThreadSensorPublishAction()
     {
@@ -251,22 +259,34 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
         CalculateFrameTime();
     }
 
+    /// <summary>
+    /// Unregisters the executor callback before Unity disables this component, then invokes subclass cleanup.
+    /// </summary>
     void OnDisable()
     {
         UnregisterExecutable();
         OnSensorDisable();
     }
 
+    /// <summary>
+    /// Unregisters the executor callback before Unity destroys this component, then invokes subclass cleanup.
+    /// </summary>
     void OnDestroy()
     {
         UnregisterExecutable();
         OnSensorDestroy();
     }
 
+    /// <summary>
+    /// Optional subclass hook invoked after the executor callback has been unregistered during OnDisable().
+    /// </summary>
     protected virtual void OnSensorDisable()
     {
     }
 
+    /// <summary>
+    /// Optional subclass hook invoked after the executor callback has been unregistered during OnDestroy().
+    /// </summary>
     protected virtual void OnSensorDestroy()
     {
     }
@@ -304,11 +324,11 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
                             + "physics frequency is " + maxFrameFreq);
             desiredUpdateFreq = maxFrameFreq;  //Can't go faster than physics
         }
-        if (desiredUpdateFreq < minimumFrequency)
+        if (desiredUpdateFreq < MinimumFrequencyHz)
         {
-            Debug.LogWarning("Minimum frequency of " + minimumFrequency
+            Debug.LogWarning("Minimum frequency of " + MinimumFrequencyHz
                              + " applied instead of " + desiredUpdateFreq);
-            desiredUpdateFreq = minimumFrequency;
+            desiredUpdateFreq = MinimumFrequencyHz;
         }
         desiredFrameTime = 1.0 / desiredUpdateFreq;
         cachedDesiredUpdateFreq = desiredUpdateFreq;

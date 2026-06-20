@@ -1,6 +1,11 @@
 // Copyright 2019-2022 Robotec.ai.
 // Modifications Copyright (c) 2026 Jianbin Liu.
 //
+// Fork modifications:
+// - Validates metadata XML before copying it into Unity Player output.
+// - Copies versioned Linux native libraries that Unity's default asset pipeline skips.
+// - Keeps ros2cs metadata beside platform plugin libraries after each Player build.
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -33,6 +38,7 @@ namespace ROS2
 /// </summary>
 internal class PostInstall : IPostprocessBuildWithReport
 {
+    // 0 = default priority; this step currently has no dependency on other post-build processors.
     public int callbackOrder { get { return 0; } }
 
     private static void ValidateMetadataXml(string path)
@@ -45,6 +51,10 @@ internal class PostInstall : IPostprocessBuildWithReport
         }
     }
 
+    /// <summary>
+    /// Copies ROS 2 metadata XML and versioned native libraries to the Player output.
+    /// Unity's asset pipeline does not copy these runtime support files automatically.
+    /// </summary>
     public void OnPostprocessBuild(BuildReport report)
     {
         var r2fuMetadataName = "metadata_ros2_for_unity.xml";
@@ -60,6 +70,7 @@ internal class PostInstall : IPostprocessBuildWithReport
                 report.summary.outputPath);
         }
         var execFilename = Path.GetFileNameWithoutExtension(report.summary.outputPath);
+        // Unity Player output layout: <ExeName>_Data/ for managed assets and <ExeName>_Data/Plugins/ for plugin libraries.
         var dataDir = outputDir + "/" + execFilename + "_Data";
         var pluginsDir = dataDir + "/Plugins";
         Directory.CreateDirectory(dataDir);

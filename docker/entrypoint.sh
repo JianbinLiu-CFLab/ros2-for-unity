@@ -26,6 +26,7 @@ export NUGET_PACKAGES=${NUGET_PACKAGES:-/workdir/cache/nuget}
 mkdir -p "$NUGET_PACKAGES"
 
 prepare_workspace() {
+  # Build a fresh working tree while preserving the host-mounted install cache/output directory.
   echo "######################################################################"
   echo ""
   if [ -n "$R2FU_LOCAL_CHECKOUT" ]; then
@@ -43,6 +44,7 @@ prepare_workspace() {
       exit 1
     fi
     mkdir -p "$R2FU_WORKDIR"
+    # Preserve the host-mounted install directory; wipe everything else before copying the local checkout.
     find "$R2FU_WORKDIR" -mindepth 1 -maxdepth 1 ! -name install -exec rm -rf {} +
     rsync -a --delete \
       --exclude install \
@@ -61,6 +63,7 @@ prepare_workspace() {
     fi
 
     mkdir -p "$R2FU_WORKDIR"
+    # Preserve the host-mounted install directory; wipe everything else before moving the remote clone in.
     find "$R2FU_WORKDIR" -mindepth 1 -maxdepth 1 ! -name install -exec rm -rf {} +
 
     shopt -s dotglob
@@ -83,12 +86,14 @@ prepare_workspace() {
 }
 
 r2fu_build() {
+  # Prepare the checkout and run the standalone build with tests enabled.
   prepare_workspace
   cd "$R2FU_WORKDIR"
   ./build.sh --standalone --with-tests "$@"
 }
 
 r2fu_test() {
+  # Run the pinned ros2cs test contract after the R2FU build produces its ros2cs workspace.
   cd "$R2FU_WORKDIR/src/ros2cs"
   if [ ! -x ./test.sh ]; then
     echo "ros2cs test.sh is missing or not executable in the pinned ros2cs checkout." >&2
@@ -99,10 +104,12 @@ r2fu_test() {
 }
 
 r2fu_smoke() {
+  # Validate the Linux artifact closure and emit the Docker CI smoke pass token.
   /usr/local/bin/r2fu-ci-smoke "$R2FU_WORKDIR"
 }
 
 r2fu_shell() {
+  # Prepare a buildable workspace, then hand control to an interactive shell.
   prepare_workspace
   cd "$R2FU_WORKDIR"
   exec bash

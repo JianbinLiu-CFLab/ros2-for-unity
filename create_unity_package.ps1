@@ -17,9 +17,9 @@
 .PARAMETER platform
     Platform label for the output package filename.
 
-Modifications Copyright (c) 2026 Jianbin Liu.
+Copyright (c) 2026 Jianbin Liu.
 
-Modifications by Jianbin Liu:
+Purpose:
 - Added strict/fail-fast Unity package creation.
 - Sanitized Unity-version-derived temporary paths before filesystem use.
 #>
@@ -116,6 +116,7 @@ if ([string]::IsNullOrEmpty($unity_version)) {
 }
 
 function Mirror-Directory {
+    # Mirror the asset into Unity's temporary project and fail fast on persistent file locks.
     param(
         [Parameter(Mandatory=$true)][string]$Source,
         [Parameter(Mandatory=$true)][string]$Destination
@@ -198,7 +199,7 @@ if ($LASTEXITCODE -ne 0) {
 Assert-PackageCreated -PackagePath $outputPackagePath
 Write-Sha256File -PackagePath $outputPackagePath
 
-# Cleaning up
+# Cleaning up happens only after a successful export so failed runs keep logs and project state for diagnosis.
 Write-Host "Cleaning up temporary project..."
 Remove-Item -LiteralPath $assetsPath -Force -Recurse -ErrorAction Ignore
 New-Item -ItemType Directory -Force -Path $assetsPath | Out-Null

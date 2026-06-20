@@ -17,9 +17,9 @@
 .PARAMETER strict_pin
     Fail when the local src\ros2cs checkout does not match ros2cs.repos. By default this is a warning.
 
-Modifications Copyright (c) 2026 Jianbin Liu.
+Copyright (c) 2026 Jianbin Liu.
 
-Modifications by Jianbin Liu:
+Purpose:
 - Added strict/fail-fast behavior for Windows builds.
 - Routed ros2cs builds through the canonical ros2cs workspace with short build roots.
 - Preserved standalone asset deployment as the public Windows packaging path.
@@ -79,6 +79,7 @@ function Write-TimingSummary {
 }
 
 function Invoke-RobocopyMirror {
+    # Mirror the Unity asset tree with robocopy while normalizing robocopy's non-error success codes.
     param(
         [Parameter(Mandatory=$true)][string]$Source,
         [Parameter(Mandatory=$true)][string]$Destination
@@ -93,7 +94,9 @@ function Invoke-RobocopyMirror {
         $Source,
         $Destination,
         "/MIR",
+        # Eight worker threads keeps local staging fast without overwhelming smaller developer machines.
         "/MT:8",
+        # Retry twice with a one-second wait so transient file locks fail quickly during CI/local packaging.
         "/R:2",
         "/W:1",
         "/NP"
@@ -112,6 +115,7 @@ function Invoke-RobocopyMirror {
 }
 
 function Get-DefaultWorkPath {
+    # Put default short work roots at the drive root to keep generated ROS/MSVC paths under Windows limits.
     param([Parameter(Mandatory=$true)][string]$Name)
     $driveRoot = [System.IO.Path]::GetPathRoot($scriptPath)
     if ([string]::IsNullOrEmpty($driveRoot))
@@ -122,6 +126,7 @@ function Get-DefaultWorkPath {
 }
 
 function Resolve-RequiredCommand {
+    # Resolve tool paths early so missing ROS/Python tooling fails before the long colcon build.
     param(
         [Parameter(Mandatory=$true)][string]$Name,
         [Parameter(Mandatory=$true)][string]$Hint
@@ -233,6 +238,7 @@ try {
     $ros2csItem = Get-Item "$scriptPath\src\ros2cs" -Force
     $ros2csPath = if ($ros2csItem.Target -and $ros2csItem.Target.Count -gt 0) { $ros2csItem.Target[0] } else { $ros2csItem.FullName }
     $ros2csSourcePath = Join-Path -Path $ros2csPath -ChildPath "src"
+    # R2FU_ROS2CS_* overrides let outer validation scripts share or isolate ros2cs build/install/log roots.
     $ros2csInstallPath = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_INSTALL_BASE)) {
         Join-Path -Path $ros2csPath -ChildPath "install"
     } else { $Env:R2FU_ROS2CS_INSTALL_BASE }
@@ -328,6 +334,7 @@ try {
         $metadataSource = Join-Path -Path $scriptPath -ChildPath "src\Ros2ForUnity\metadata_ros2cs.xml"
         $metadataWindowsDestination = Join-Path -Path $scriptPath -ChildPath "install\asset\Ros2ForUnity\Plugins\Windows\x86_64"
         $metadataPluginDestination = Join-Path -Path $scriptPath -ChildPath "install\asset\Ros2ForUnity\Plugins"
+        # Keep one metadata copy beside platform native DLLs and one at Plugins root for platform-agnostic readers.
         Copy-Item -LiteralPath $metadataSource -Destination $metadataWindowsDestination -Force
         Copy-Item -LiteralPath $metadataSource -Destination $metadataPluginDestination -Force
     }

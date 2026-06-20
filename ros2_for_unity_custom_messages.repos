@@ -1,3 +1,9 @@
+# Modifications Copyright (c) 2026 Jianbin Liu.
+#
+# Purpose:
+# - Optional fork-local manifest for custom ROS message repositories that should be imported before building the Unity asset.
+# - Empty by default so the maintained Jazzy artifact can be reproduced without private custom message inputs.
+#
 # NOTE: Use this file if you want to build with custom messages that reside in a separate remote repo.
 # NOTE: use the following format
 

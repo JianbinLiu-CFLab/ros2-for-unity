@@ -1,7 +1,7 @@
 #!/bin/bash
-# Modifications Copyright (c) 2026 Jianbin Liu.
+# Copyright (c) 2026 Jianbin Liu.
 #
-# Modifications by Jianbin Liu:
+# Purpose:
 # - Added strict/fail-fast Unity package creation.
 # - Sanitized Unity-version-derived temporary paths before filesystem use.
 
@@ -242,7 +242,7 @@ fi
 assert_package_created "$OUTPUT_PACKAGE_PATH"
 write_sha256_file "$OUTPUT_PACKAGE_PATH"
 
-# Cleaning up
+# Cleaning up happens only after a successful export so failed runs keep logs and project state for diagnosis.
 echo "Cleaning up temporary project..."
 rm -rf "$TMP_PROJECT_PATH/Assets"
 mkdir -p "$TMP_PROJECT_PATH/Assets"

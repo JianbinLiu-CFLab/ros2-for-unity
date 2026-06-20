@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Jianbin Liu.
+# Allowlist: only files needed to build the Docker image are sent as context.
 *
 !Dockerfile
 !entrypoint.sh

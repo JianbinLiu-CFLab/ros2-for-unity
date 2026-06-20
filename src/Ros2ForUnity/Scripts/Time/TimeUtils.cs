@@ -23,6 +23,9 @@ namespace ROS2
 /// </summary>
 internal static class TimeUtils
 {
+  private const double NanosecondsPerSecondDouble = 1_000_000_000.0;
+  private const long NanosecondsPerSecond = 1_000_000_000L;
+
   /// <summary>
   /// Converts total seconds into ROS sec/nanosec fields.
   /// </summary>
@@ -39,12 +42,12 @@ internal static class TimeUtils
 
     double wholeSeconds = Math.Floor(secondsIn);
     double fractionalSeconds = secondsIn - wholeSeconds;
-    long wholeNanoseconds = (long)Math.Round(fractionalSeconds * 1000000000.0);
+    long wholeNanoseconds = (long)Math.Round(fractionalSeconds * NanosecondsPerSecondDouble);
 
-    if (wholeNanoseconds >= 1000000000)
+    if (wholeNanoseconds >= NanosecondsPerSecond)
     {
       wholeSeconds += 1.0;
-      wholeNanoseconds -= 1000000000;
+      wholeNanoseconds -= NanosecondsPerSecond;
     }
 
     if (wholeSeconds < Int32.MinValue || wholeSeconds > Int32.MaxValue)

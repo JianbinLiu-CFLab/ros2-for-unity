@@ -1,7 +1,7 @@
 #!/bin/bash
-# Modifications Copyright (c) 2026 Jianbin Liu.
+# Copyright (c) 2026 Jianbin Liu.
 #
-# Modifications by Jianbin Liu:
+# Purpose:
 # - Added fail-fast plugin deployment.
 # - Made optional standalone-library copies non-fatal when the source directory is absent.
 # - Added deployment timing and batched copy operations.
@@ -13,6 +13,7 @@ SCRIPTPATH=$(dirname "$SCRIPT")
 TIMING_NAMES=()
 TIMING_MS=()
 now_ns() {
+  # Bash 5+ exposes EPOCHREALTIME without spawning date; older shells use date as a fallback.
   if [ -n "${EPOCHREALTIME:-}" ]; then
     local realtime="$EPOCHREALTIME"
     local seconds="${realtime%%[.,]*}"
@@ -55,6 +56,7 @@ run_timed() {
   local start_ns
   local status
   start_ns=$(now_ns)
+  # Temporarily relax errexit so timing is recorded before the original status is returned.
   set +e
   "$@"
   status=$?
@@ -90,11 +92,13 @@ copy_find_batch() {
 }
 
 remove_deployed_plugin_outputs() {
+  # Remove both the current native output and the legacy nested StreamingAssets layout from older builds.
   rm -rf "$nativePluginDir" "$streamingAssetsShareDestination" "$legacyNestedStreamingAssets" || return
   find "$pluginDir" -maxdepth 1 -type f \( -name "*.dll" -o -name "metadata_ros2cs.xml" \) -delete || return
 }
 
 copy_file_preserving_relative_path() {
+  # Copy selected ament-index files while preserving their resource_index-relative names.
   local source_root="$1"
   local destination_root="$2"
   local relative_path="$3"
@@ -112,6 +116,7 @@ copy_file_preserving_relative_path() {
 copy_ros_runtime_share_closure() {
   local source_share="$1"
   local destination_share="$2"
+  # These package entries cover RMW selection, typesupport lookup, and dynamic type backend discovery.
   local runtime_packages=(
     ament_index_cpp
     fastcdr
@@ -138,6 +143,7 @@ copy_ros_runtime_share_closure() {
     rosidl_typesupport_introspection_c
     rosidl_typesupport_introspection_cpp
   )
+  # Resource indexes are copied package-by-package to avoid pulling large unrelated share directories.
   local resource_indexes=(
     packages
     package_run_dependencies
@@ -227,6 +233,7 @@ find_ros_runtime_files() {
 }
 
 copy_ros_root_runtime_libs() {
+  # These libraries are resolved from the active ROS root/LD_LIBRARY_PATH, not from the ros2cs install prefix.
   local patterns=(
     "libclass_loader.so*"
     "libfastdds.so*"
@@ -269,10 +276,12 @@ copy_metadata_file() {
 }
 
 deploy_metadata_files() {
+  # Keep metadata next to platform native libraries and at Plugins root for platform-agnostic readers.
   copy_metadata_file "$pluginDir" &&
     copy_metadata_file "$nativePluginDir"
 }
 
+# Always print timing, including failing deployments, so long-running phases are visible in CI logs.
 trap print_timing_summary EXIT
 
 if [ $# -gt 0 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then

@@ -1,7 +1,7 @@
 #!/bin/bash
-# Modifications Copyright (c) 2026 Jianbin Liu.
+# Copyright (c) 2026 Jianbin Liu.
 #
-# Modifications by Jianbin Liu:
+# Purpose:
 # - Added a Docker CI-candidate smoke check for R2FU Linux artifact closure.
 
 set -euo pipefail
@@ -116,8 +116,10 @@ EOF
 
 managed_count=$(find "$plugin_dir" -maxdepth 1 -type f | wc -l)
 native_count=$(find "$native_dir" -maxdepth 1 -type f | wc -l)
+# Defaults match the expected Jazzy standalone artifact shape; override only when the package layout changes.
 min_managed_count=${R2FU_DOCKER_MIN_MANAGED_FILES:-10}
 min_native_count=${R2FU_DOCKER_MIN_NATIVE_FILES:-20}
+ros_cli_timeout=${R2FU_DOCKER_ROS_CLI_TIMEOUT:-30s}
 require_min_count "managed artifact" "$managed_count" "$min_managed_count"
 require_min_count "native artifact" "$native_count" "$min_native_count"
 
@@ -138,6 +140,8 @@ if grep -q "not found" "$ldd_log"; then
 fi
 
 echo "Checking ROS 2 CLI context availability."
-timeout 30s ros2 topic list >"$topic_log"
+# 30 s covers Fast DDS loopback discovery on cold CI runners; increase with R2FU_DOCKER_ROS_CLI_TIMEOUT if needed.
+timeout "$ros_cli_timeout" ros2 topic list >"$topic_log"
 
+# Linux/Jazzy artifact closure only. This does not validate Windows artifacts or Unity Editor/Player behavior.
 echo "R2FU_DOCKER_CI_SMOKE_PASS distro=${ROS_DISTRO:-unset} platform=linux managed=$managed_count native=$native_count rmw=${RMW_IMPLEMENTATION:-unset} ldd_log=$ldd_log topic_log=$topic_log"

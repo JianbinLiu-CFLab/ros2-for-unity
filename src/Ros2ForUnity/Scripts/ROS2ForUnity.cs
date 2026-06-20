@@ -1,6 +1,11 @@
 // Copyright 2019-2021 Robotec.ai.
 // Modifications Copyright (c) 2026 Jianbin Liu.
 //
+// Fork modifications:
+// - Added Jazzy/Lyrical distro support and Lyrical ROS2CS_SPIN_FALLBACK setup.
+// - Added Unicode Windows CRT environment writes for standalone native getenv callers.
+// - Added reference-counted init/shutdown, editor shutdown hooks, and standalone runtime path probing.
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -27,13 +32,15 @@ namespace ROS2
 {
 
 /// <summary>
-/// An internal class responsible for handling checking, proper initialization and shutdown of ROS2cs,
+/// Handles ROS2cs validation, initialization, and shutdown for R2FU.
+/// Wraps reference-counted init/shutdown so multiple callers can share one ROS 2 context.
 /// </summary>
 internal class ROS2ForUnity : IDisposable
 {
     private static bool isInitialized = false;
     private static readonly object initMutex = new object();
     private static int referenceCount = 0;
+    // Prevents repeatedly prepending the plugin path across multiple ROS2ForUnity instances.
     private static bool pathConfigured = false;
     private static string ros2ForUnityAssetFolderName = "Ros2ForUnity";
     private static readonly string[] supportedVersionsOrdered = { "foxy", "galactic", "humble", "jazzy", "lyrical", "rolling" };
@@ -41,13 +48,16 @@ internal class ROS2ForUnity : IDisposable
     private static readonly string supportedVersionsString = String.Join(", ", supportedVersionsOrdered);
     private static readonly Lazy<string> ros2ForUnityPath = new Lazy<string>(ComputeRos2ForUnityPath);
     private static readonly Lazy<string> pluginPath = new Lazy<string>(ComputePluginPath);
+    // Kept as a field so the exact delegate instance can be unregistered during shutdown.
     private static ConsoleCancelEventHandler consoleCancelHandler;
     private const string Ros2csSpinFallbackEnvVar = "ROS2CS_SPIN_FALLBACK";
 
+    // Windows standalone ROS 2 libraries read getenv() through UCRT, so mirror managed env writes there.
     [DllImport("ucrtbase.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
     private static extern int _wputenv_s(string name, string value);
 
 #if UNITY_EDITOR
+    // Unity editor domain reloads can construct this class repeatedly; avoid duplicate global handlers.
     private static bool editorHandlersRegistered = false;
 #endif
     // Metadata files are local package files; disable external XML resolution defensively.
@@ -55,12 +65,18 @@ internal class ROS2ForUnity : IDisposable
     private XmlDocument ros2ForUnityMetadata = new XmlDocument { XmlResolver = null };
     private bool ownsReference = false;
 
+    /// <summary>
+    /// Runtime platform families supported by this Unity package.
+    /// </summary>
     public enum Platform
     {
         Windows,
         Linux
     }
-    
+
+    /// <summary>
+    /// Returns the supported platform family for the current Unity runtime.
+    /// </summary>
     public static Platform GetOS()
     {
         if (Application.platform == RuntimePlatform.LinuxEditor || Application.platform == RuntimePlatform.LinuxPlayer)
@@ -122,6 +138,9 @@ internal class ROS2ForUnity : IDisposable
         }
     }
 
+    /// <summary>
+    /// Returns the root Ros2ForUnity asset path for the current Editor or Player layout.
+    /// </summary>
     public static string GetRos2ForUnityPath()
     {
         return ros2ForUnityPath.Value;
@@ -139,6 +158,9 @@ internal class ROS2ForUnity : IDisposable
         return path;
     }
 
+    /// <summary>
+    /// Returns the platform-specific plugin path that contains native ROS 2 libraries.
+    /// </summary>
     public static string GetPluginPath()
     {
         return pluginPath.Value;
@@ -176,12 +198,12 @@ internal class ROS2ForUnity : IDisposable
     /// <summary>
     /// Function responsible for setting up of environment paths for standalone builds
     /// </summary>
-    /// <description>
+    /// <remarks>
     /// Note that on Linux, LD_LIBRARY_PATH as used for dlopen() is determined on process start and this change won't
     /// affect it. Ros2 looks for rmw implementation based on this variable (independently) and the change
-    /// is effective for this process, however rmw implementation's dependencies itself are loaded by dynamic linker 
+    /// is effective for this process, however rmw implementation's dependencies itself are loaded by dynamic linker
     /// anyway so setting it for Linux is pointless.
-    /// </description>
+    /// </remarks>
     private static void SetEnvPathVariable()
     {
         string currentPath = GetEnvPathVariableValue();
@@ -223,16 +245,19 @@ internal class ROS2ForUnity : IDisposable
         string prefixSource = "asset root";
         string streamingAssetsPrefixPath = Path.Combine(Application.streamingAssetsPath, ros2ForUnityAssetFolderName);
         string pluginPrefixPath = GetPluginPath();
+        // 1. StreamingAssets: preferred for standalone runtime share data copied beside the Player.
         if (Directory.Exists(Path.Combine(streamingAssetsPrefixPath, "share")))
         {
             prefixPath = streamingAssetsPrefixPath;
             prefixSource = "StreamingAssets";
         }
+        // 2. Plugins dir: compact standalone plugin bundle layout.
         else if (Directory.Exists(Path.Combine(pluginPrefixPath, "share")))
         {
             prefixPath = pluginPrefixPath;
             prefixSource = "plugin directory";
         }
+        // 3. Asset root: Editor or non-standalone fallback.
         else if (!Directory.Exists(Path.Combine(prefixPath, "share")))
         {
             Debug.LogWarning("Standalone AMENT_PREFIX_PATH fallback has no share directory: " + prefixPath);
@@ -268,6 +293,7 @@ internal class ROS2ForUnity : IDisposable
     {
         if (String.IsNullOrEmpty(Environment.GetEnvironmentVariable("RMW_IMPLEMENTATION")))
         {
+            // Fast-RTPS is the bundled standalone RMW; callers may override before ROS2ForUnity initializes.
             SetProcessEnvironmentVariable("RMW_IMPLEMENTATION", "rmw_fastrtps_cpp");
         }
     }
@@ -289,6 +315,8 @@ internal class ROS2ForUnity : IDisposable
 
         if (String.IsNullOrEmpty(Environment.GetEnvironmentVariable(Ros2csSpinFallbackEnvVar)))
         {
+            // "direct" tells ros2cs to avoid the wait-set executor path. Lyrical preview needs it
+            // because repeated rcl_wait/context cycling has shown instability in standalone players.
             SetProcessEnvironmentVariable(Ros2csSpinFallbackEnvVar, "direct");
             Debug.Log("ROS2CS spin fallback enabled for Lyrical standalone runtime.");
         }
@@ -311,15 +339,22 @@ internal class ROS2ForUnity : IDisposable
     {
         if (String.IsNullOrEmpty(Environment.GetEnvironmentVariable("RCUTILS_COLORIZED_OUTPUT")))
         {
+            // Disable ANSI color codes; Windows Player consoles can render them as raw escape sequences.
             SetProcessEnvironmentVariable("RCUTILS_COLORIZED_OUTPUT", "0");
         }
     }
 
+    /// <summary>
+    /// Returns whether the package metadata describes a standalone build with bundled ROS 2 libraries.
+    /// </summary>
     public bool IsStandalone()
     {
         return ParseMetadataBool(GetMetadataValue(ros2csMetadata, "/ros2cs/standalone"), "/ros2cs/standalone");
     }
 
+    /// <summary>
+    /// Returns the effective ROS 2 distro, preferring a sourced environment over packaged metadata.
+    /// </summary>
     public string GetROSVersion()
     {
         string ros2SourcedCodename = GetROSVersionSourced();
@@ -376,6 +411,9 @@ internal class ROS2ForUnity : IDisposable
 #endif
     }
 
+    /// <summary>
+    /// Returns the sourced ROS_DISTRO value, or null when Unity was launched without a sourced ROS 2 environment.
+    /// </summary>
     public string GetROSVersionSourced()
     {
         return Environment.GetEnvironmentVariable("ROS_DISTRO");
@@ -516,6 +554,9 @@ internal class ROS2ForUnity : IDisposable
         }
     }
 
+    /// <summary>
+    /// Creates or shares the process-wide ROS2cs context and configures runtime paths.
+    /// </summary>
     internal ROS2ForUnity()
     {
         lock (initMutex)
@@ -616,6 +657,10 @@ internal class ROS2ForUnity : IDisposable
             return Ros2cs.Ok();
         }
     }
+
+    /// <summary>
+    /// Releases this instance's reference to the shared ROS2cs context and shuts it down when last owner exits.
+    /// </summary>
     internal void DestroyROS2ForUnity()
     {
         lock (initMutex)
@@ -638,6 +683,9 @@ internal class ROS2ForUnity : IDisposable
         }
     }
 
+    /// <summary>
+    /// Releases this instance's shared ROS2cs context reference.
+    /// </summary>
     public void Dispose()
     {
         DestroyROS2ForUnity();

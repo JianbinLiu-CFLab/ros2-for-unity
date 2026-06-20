@@ -1,5 +1,11 @@
 # Contributor Covenant Code of Conduct
 
+<!--
+Modifications Copyright (c) 2026 Jianbin Liu.
+Modifications by Jianbin Liu:
+- Routed enforcement contact language to the JianbinLiu-CFLab fork maintainer instead of RobotecAI upstream.
+-->
+
 ## Our Pledge
 
 We as members, contributors, and leaders pledge to make participation in our
@@ -59,8 +65,10 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the maintainers of this fork through the
-[JianbinLiu-CFLab/ros2-for-unity issue tracker](https://github.com/JianbinLiu-CFLab/ros2-for-unity/issues).
+reported to the maintainer of this fork through the contact methods listed on
+the [JianbinLiu-CFLab GitHub profile](https://github.com/JianbinLiu-CFLab).
+Do not publish private conduct reports in public issues unless you intentionally
+want the report to be public.
 All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the

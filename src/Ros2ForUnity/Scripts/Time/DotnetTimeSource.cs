@@ -30,7 +30,9 @@ public class DotnetTimeSource : ITimeSource
 {
     private static readonly DateTime UnixEpoch =
         new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-    private readonly double maxUnsyncedSeconds = 10;
+
+    // Resynchronize with DateTime.UtcNow periodically so Stopwatch drift cannot accumulate indefinitely.
+    private const double MaxUnsyncedSeconds = 10.0;
 
     private Stopwatch stopwatch = new Stopwatch();
 
@@ -54,13 +56,17 @@ public class DotnetTimeSource : ITimeSource
         UpdateSystemTime();
     }
 
+    /// <summary>
+    /// Acquires Unix-epoch UTC wall time as ROS sec/nanosec fields.
+    /// </summary>
+    /// <returns>Always true.</returns>
     public bool GetTime(out int seconds, out uint nanoseconds)
     {
         lock(mutex) // Threading
         {
             var durationInSeconds = stopwatch.ElapsedTicks / (double)Stopwatch.Frequency;
             double timeOffset = 0;
-            if (durationInSeconds >= maxUnsyncedSeconds)
+            if (durationInSeconds >= MaxUnsyncedSeconds)
             {   // acquire DateTime to sync
                 UpdateSystemTime();
             }
