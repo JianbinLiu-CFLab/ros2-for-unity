@@ -89,6 +89,190 @@ copy_find_batch() {
   find "$source_dir" -maxdepth 1 "$@" -exec cp -L -t "$destination_dir" {} +
 }
 
+remove_deployed_plugin_outputs() {
+  rm -rf "$nativePluginDir" "$streamingAssetsShareDestination" "$legacyNestedStreamingAssets" || return
+  find "$pluginDir" -maxdepth 1 -type f \( -name "*.dll" -o -name "metadata_ros2cs.xml" \) -delete || return
+}
+
+copy_file_preserving_relative_path() {
+  local source_root="$1"
+  local destination_root="$2"
+  local relative_path="$3"
+  local source_file="$source_root/$relative_path"
+  local destination_file="$destination_root/$relative_path"
+
+  if [ ! -f "$source_file" ]; then
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$destination_file")" || return
+  cp -f "$source_file" "$destination_file"
+}
+
+copy_ros_runtime_share_closure() {
+  local source_share="$1"
+  local destination_share="$2"
+  local runtime_packages=(
+    ament_index_cpp
+    fastcdr
+    fastdds
+    foonathan_memory_vendor
+    rcpputils
+    rcutils
+    rmw
+    rmw_dds_common
+    rmw_fastrtps_cpp
+    rmw_fastrtps_shared_cpp
+    rmw_implementation
+    rmw_implementation_cmake
+    rmw_security_common
+    rosidl_buffer_backend
+    rosidl_dynamic_typesupport
+    rosidl_dynamic_typesupport_fastrtps
+    rosidl_runtime_c
+    rosidl_runtime_cpp
+    rosidl_typesupport_c
+    rosidl_typesupport_cpp
+    rosidl_typesupport_fastrtps_c
+    rosidl_typesupport_fastrtps_cpp
+    rosidl_typesupport_introspection_c
+    rosidl_typesupport_introspection_cpp
+  )
+  local resource_indexes=(
+    packages
+    package_run_dependencies
+    parent_prefix_path
+    rmw_output_patterns
+    rmw_output_prefixes
+    rmw_typesupport
+    rmw_typesupport_c
+    rmw_typesupport_cpp
+    rosidl_typesupport_c
+    rosidl_typesupport_cpp
+  )
+  local package_name
+  local resource_index
+
+  for package_name in "${runtime_packages[@]}"; do
+    for resource_index in "${resource_indexes[@]}"; do
+      copy_file_preserving_relative_path \
+        "$source_share" \
+        "$destination_share" \
+        "ament_index/resource_index/$resource_index/$package_name" || return
+    done
+  done
+}
+
+deploy_ros_runtime_share_closure() {
+  local source_share="$1"
+  copy_ros_runtime_share_closure "$source_share" "${nativePluginDir}/share" &&
+    copy_ros_runtime_share_closure "$source_share" "$streamingAssetsShareDestination"
+}
+
+emit_ros_root_candidates() {
+  if [ -n "${ROS2_ROOT:-}" ]; then
+    printf '%s\n' "$ROS2_ROOT"
+  fi
+
+  if [ -n "${LD_LIBRARY_PATH:-}" ]; then
+    local old_ifs="$IFS"
+    local lib_dir
+    IFS=:
+    for lib_dir in $LD_LIBRARY_PATH; do
+      IFS="$old_ifs"
+      if [ -n "$lib_dir" ] && [ "$(basename "$lib_dir")" = "lib" ]; then
+        dirname "$lib_dir"
+      fi
+      IFS=:
+    done
+    IFS="$old_ifs"
+  fi
+
+  if [ -n "${ROS_DISTRO:-}" ] && [ -d "/opt/ros/$ROS_DISTRO" ]; then
+    printf '%s\n' "/opt/ros/$ROS_DISTRO"
+  fi
+}
+
+emit_ros_library_search_dirs() {
+  local root
+  while IFS= read -r root; do
+    if [ -n "$root" ]; then
+      printf '%s\n' "$root/lib"
+    fi
+  done < <(emit_ros_root_candidates)
+
+  if [ -n "${LD_LIBRARY_PATH:-}" ]; then
+    local old_ifs="$IFS"
+    local lib_dir
+    IFS=:
+    for lib_dir in $LD_LIBRARY_PATH; do
+      IFS="$old_ifs"
+      if [ -n "$lib_dir" ]; then
+        printf '%s\n' "$lib_dir"
+      fi
+      IFS=:
+    done
+    IFS="$old_ifs"
+  fi
+}
+
+find_ros_runtime_files() {
+  local pattern="$1"
+  local search_dir
+  while IFS= read -r search_dir; do
+    if [ -d "$search_dir" ]; then
+      compgen -G "$search_dir/$pattern" || true
+    fi
+  done < <(emit_ros_library_search_dirs | sort -u)
+}
+
+copy_ros_root_runtime_libs() {
+  local patterns=(
+    "libclass_loader.so*"
+    "libfastdds.so*"
+    "librcl_logging_implementation.so*"
+    "librosidl_buffer_backend_registry.so*"
+  )
+  local pattern
+  local files
+  local file
+  local search_dirs
+  search_dirs=$(emit_ros_library_search_dirs | sort -u | paste -sd ';' -)
+
+  for pattern in "${patterns[@]}"; do
+    files=$(find_ros_runtime_files "$pattern" | sort -u)
+    if [ -z "$files" ]; then
+      echo "WARNING: Could not find required ROS2 runtime library pattern '$pattern'. Searched: $search_dirs" >&2
+      continue
+    fi
+    while IFS= read -r file; do
+      cp -Lf "$file" "$nativePluginDir/" || return
+    done <<< "$files"
+  done
+}
+
+copy_metadata_file() {
+  local destination="$1"
+  local metadata_source="$SCRIPTPATH/src/Ros2ForUnity/metadata_ros2cs.xml"
+
+  if [ ! -f "$metadata_source" ]; then
+    echo "metadata_ros2cs.xml source file is missing: $metadata_source" >&2
+    return 1
+  fi
+
+  mkdir -p "$destination" || return
+  cp -f "$metadata_source" "$destination/" || return
+  if [ ! -f "$destination/metadata_ros2cs.xml" ]; then
+    echo "Required deployed ros2cs metadata is missing: $destination/metadata_ros2cs.xml" >&2
+    return 1
+  fi
+}
+
+deploy_metadata_files() {
+  copy_metadata_file "$pluginDir" &&
+    copy_metadata_file "$nativePluginDir"
+}
+
 trap print_timing_summary EXIT
 
 if [ $# -gt 0 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
@@ -109,8 +293,18 @@ if [ $# -eq 0 ]; then
   exit 1
 fi
 
-pluginDir=$1
+pluginDir=${1%/}
 installRoot=${2:-"$SCRIPTPATH/install"}
+nativePluginDir="${pluginDir}/Linux/x86_64"
+assetRoot=$(dirname "$pluginDir")
+assetInstallRoot=$(dirname "$assetRoot")
+legacyNestedStreamingAssets="${assetRoot}/StreamingAssets"
+streamingAssetsShareDestination="${assetInstallRoot}/StreamingAssets/Ros2ForUnity/share"
+
+if [ ! -d "$pluginDir" ]; then
+  echo "Plugins directory: '$pluginDir' doesn't exist. Please create it first manually." >&2
+  exit 1
+fi
 
 require_file_glob() {
   local description="$1"
@@ -121,7 +315,8 @@ require_file_glob() {
   fi
 }
 
-mkdir -p "${pluginDir}/Linux/x86_64/"
+run_timed "stale plugin cleanup" remove_deployed_plugin_outputs
+mkdir -p "${nativePluginDir}/"
 run_timed "managed DLL deploy" copy_find_batch "$installRoot/lib/dotnet/" "${pluginDir}" -type f -not -name "*.pdb"
 for required_managed in ros2cs_common.dll ros2cs_core.dll; do
   if [ ! -f "${pluginDir}/${required_managed}" ]; then
@@ -131,22 +326,42 @@ for required_managed in ros2cs_common.dll ros2cs_core.dll; do
 done
 # Standalone/resource outputs are optional; non-standalone builds must still deploy the core plugins.
 if [ -d "$installRoot/standalone" ]; then
-  run_timed "standalone native deploy" copy_find_batch "$installRoot/standalone" "${pluginDir}/Linux/x86_64/" \( -type f -o -type l \)
+  run_timed "standalone native deploy" copy_find_batch "$installRoot/standalone" "${nativePluginDir}/" \( -type f -o -type l \)
 fi
-run_timed "native lib deploy" copy_find_batch "$installRoot/lib/" "${pluginDir}/Linux/x86_64/" \( -type f -o -type l \) -not -name "*_python.so"
+run_timed "native lib deploy" copy_find_batch "$installRoot/lib/" "${nativePluginDir}/" \( -type f -o -type l \) -not -name "*_python.so"
 if [ -d "$installRoot/resources" ]; then
-  run_timed "resource native deploy" copy_find_batch "$installRoot/resources" "${pluginDir}/Linux/x86_64/" \( -type f -o -type l \) -name "*.so"
+  run_timed "resource native deploy" copy_find_batch "$installRoot/resources" "${nativePluginDir}/" \( -type f -o -type l \) -name "*.so"
 fi
 
+while IFS= read -r ros_root; do
+  if [ -d "$ros_root/share" ]; then
+    run_timed "ROS2 runtime share deploy" deploy_ros_runtime_share_closure "$ros_root/share"
+    break
+  fi
+done < <(emit_ros_root_candidates | sort -u)
+
+run_timed "ROS2 root runtime lib deploy" copy_ros_root_runtime_libs
+run_timed "ros2cs metadata deploy" deploy_metadata_files
+
 if [ -d "$installRoot/standalone" ] || [ -d "$installRoot/resources" ] || compgen -G "$installRoot/lib/librcl.so*" > /dev/null; then
-  require_file_glob "rcl runtime" "${pluginDir}/Linux/x86_64/librcl.so*"
-  require_file_glob "rmw implementation runtime" "${pluginDir}/Linux/x86_64/librmw_implementation.so*"
-  if ! compgen -G "${pluginDir}/Linux/x86_64/libyaml.so*" > /dev/null && ! compgen -G "${pluginDir}/Linux/x86_64/libyaml-cpp.so*" > /dev/null; then
-    echo "Required deployed YAML runtime is missing: expected libyaml.so* or libyaml-cpp.so* under ${pluginDir}/Linux/x86_64/" >&2
+  require_file_glob "rcl runtime" "${nativePluginDir}/librcl.so*"
+  require_file_glob "class_loader runtime" "${nativePluginDir}/libclass_loader.so*"
+  require_file_glob "Fast DDS runtime" "${nativePluginDir}/libfastdds.so*"
+  require_file_glob "rmw implementation runtime" "${nativePluginDir}/librmw_implementation.so*"
+  require_file_glob "rcl logging implementation runtime" "${nativePluginDir}/librcl_logging_implementation.so*"
+  require_file_glob "rosidl buffer backend registry runtime" "${nativePluginDir}/librosidl_buffer_backend_registry.so*"
+  require_file_glob "rosidl_buffer_backend package index" "${nativePluginDir}/share/ament_index/resource_index/packages/rosidl_buffer_backend"
+  require_file_glob "rmw_implementation package index" "${nativePluginDir}/share/ament_index/resource_index/packages/rmw_implementation"
+  require_file_glob "rmw_fastrtps_cpp typesupport index" "${nativePluginDir}/share/ament_index/resource_index/rmw_typesupport/rmw_fastrtps_cpp"
+  require_file_glob "StreamingAssets rosidl_buffer_backend package index" "${streamingAssetsShareDestination}/ament_index/resource_index/packages/rosidl_buffer_backend"
+  require_file_glob "StreamingAssets rmw_implementation package index" "${streamingAssetsShareDestination}/ament_index/resource_index/packages/rmw_implementation"
+  require_file_glob "StreamingAssets rmw_fastrtps_cpp typesupport index" "${streamingAssetsShareDestination}/ament_index/resource_index/rmw_typesupport/rmw_fastrtps_cpp"
+  if ! compgen -G "${nativePluginDir}/libyaml.so*" > /dev/null && ! compgen -G "${nativePluginDir}/libyaml-cpp.so*" > /dev/null; then
+    echo "Required deployed YAML runtime is missing: expected libyaml.so* or libyaml-cpp.so* under ${nativePluginDir}/" >&2
     exit 1
   fi
 fi
 
 managed_count=$(find "${pluginDir}" -maxdepth 1 -type f | wc -l)
-native_count=$(find "${pluginDir}/Linux/x86_64/" -maxdepth 1 \( -type f -o -type l \) | wc -l)
+native_count=$(find "${nativePluginDir}/" -maxdepth 1 \( -type f -o -type l \) | wc -l)
 echo "Deployment file counts: managed=${managed_count} native=${native_count}"

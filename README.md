@@ -23,7 +23,7 @@ This fork consumes the maintained ros2cs fork through `ros2cs.repos`:
 
 ```text
 https://github.com/JianbinLiu-CFLab/ros2cs.git
-version: e0c06c3e050c1c6d50d4cae88aaa60cde04f0ed3
+version: 66ebf542837428b8d0d6069d71f7fc07c393c1a0
 ```
 
 The `main` branch remains the active integration line, while public build inputs are pinned to verified preview commit hashes for reproducibility.
@@ -39,7 +39,7 @@ Verified on the current maintenance line:
 - Build GREEN: Windows-native Jazzy standalone asset build through `build.ps1`, using the canonical `ros2cs` workspace and documented short-path Windows layout.
 - Latest source release: [`v0.6.0-jazzy-win64-preview.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.6.0-jazzy-win64-preview.1).
 - Latest packaged Windows artifact: [`v0.6.0-jazzy-win64-preview.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.6.0-jazzy-win64-preview.1).
-- Current `v0.6.0` artifact: `Ros2ForUnity_jazzy_standalone_windows_x86_64.zip`. The release publishes a matching `.sha256.txt` and `.manifest.json` next to the zip.
+- Current `v0.6.0` artifact: `Ros2ForUnity_jazzy_standalone_windows_x86_64.zip`. The release publishes a matching `.sha256.txt` and `.manifest.json` next to the zip. Optional `.unitypackage` outputs are created by `create_unity_package.*` and include their own adjacent `.sha256.txt`; they are not covered by the zip manifest.
 - Managed/native regression signal: `ros2cs_tests` reports 82 NUnit tests passed, 0 failed, 0 skipped.
 
 Not yet claimed:

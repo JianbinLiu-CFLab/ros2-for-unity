@@ -30,6 +30,9 @@ namespace ROS2
 /// </summary>
 public class ROS2UnityComponent : MonoBehaviour
 {
+    private static readonly object liveComponentsMutex = new object();
+    private static readonly HashSet<ROS2UnityComponent> liveComponents = new HashSet<ROS2UnityComponent>();
+
     private ROS2ForUnity ros2forUnity;
     private List<ROS2Node> nodes;
     private List<INode> ros2csNodes; // For performance in spinning
@@ -77,6 +80,8 @@ public class ROS2UnityComponent : MonoBehaviour
 
     void Start()
     {
+        // Executor spinning begins on the first FixedUpdate, so subscriptions created in Start
+        // receive callbacks after the first physics-timestep spin.
         LazyConstruct();
     }
 
@@ -254,6 +259,7 @@ public class ROS2UnityComponent : MonoBehaviour
             initialized = true;
             threadToStart = executorThread;
         }
+        RegisterLiveComponent(this);
         threadToStart.Start();
     }
 
@@ -278,6 +284,41 @@ public class ROS2UnityComponent : MonoBehaviour
         {
             executorThread = null;
             initialized = false;
+        }
+        UnregisterLiveComponent(this);
+    }
+
+    private static void RegisterLiveComponent(ROS2UnityComponent component)
+    {
+        lock (liveComponentsMutex)
+        {
+            liveComponents.Add(component);
+        }
+    }
+
+    private static void UnregisterLiveComponent(ROS2UnityComponent component)
+    {
+        lock (liveComponentsMutex)
+        {
+            liveComponents.Remove(component);
+        }
+    }
+
+    internal static void StopAllExecutorsForRosShutdown()
+    {
+        List<ROS2UnityComponent> snapshot;
+        lock (liveComponentsMutex)
+        {
+            snapshot = new List<ROS2UnityComponent>(liveComponents);
+        }
+
+        foreach (ROS2UnityComponent component in snapshot)
+        {
+            if (component == null)
+            {
+                continue;
+            }
+            component.StopExecutor();
         }
     }
 

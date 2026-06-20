@@ -1,6 +1,6 @@
-# ROS2 For Unity - Ubuntu 20.04 and 22.04
+# ROS2 For Unity - Ubuntu 20.04, 22.04, and 24.04
 
-This readme contains information specific to Ubuntu 20.04/22.04. For general information, please see [README.md](README.md)
+This readme contains information specific to Ubuntu 20.04/22.04/24.04. For general information, please see [README.md](README.md)
 
 > Current status: these Ubuntu instructions are retained as legacy guidance. This Jazzy maintenance line has not recently revalidated Ubuntu 20.04/22.04/24.04. Treat the commands below as a starting point until a fresh Ubuntu build/test record is added.
 >
@@ -12,7 +12,7 @@ We assume that working directory is `~/ros2-for-unity` and we are using a source
 
 ### Prerequisites
 
-Start with installation of dependencies. Make sure to complete each step of `ros2cs` [Prerequisites section](https://github.com/RobotecAI/ros2cs/blob/master/README-UBUNTU.md#prerequisites).
+Start with installation of dependencies. Make sure to complete each step of this fork's `ros2cs` [Prerequisites section](https://github.com/JianbinLiu-CFLab/ros2cs/blob/main/README-UBUNTU.md#prerequisites). RobotecAI upstream documentation is useful historical reference, but this fork's Jazzy toolchain may differ.
 
 ### Steps
 
@@ -43,13 +43,15 @@ Start with installation of dependencies. Make sure to complete each step of `ros
     # overlay mode
     ./build.sh
     ```
-    * You can add `--clean-install` flag to make sure your installation directory is cleaned before deploying.
+    * You can add `--clean-install` to remove the R2FU install tree plus the ros2cs build, log, and install roots before deploying.
+    * `build.sh` warns when the local `src/ros2cs` checkout does not match `ros2cs.repos`; pass `--strict-pin` to make the mismatch fail the build.
+    * Linux standalone deployment validates required managed and native closure files after copy, including `ros2cs_common.dll`, `ros2cs_core.dll`, `librcl.so*`, `libclass_loader.so*`, `libfastdds.so*`, `librmw_implementation.so*`, `librcl_logging_implementation.so*`, `librosidl_buffer_backend_registry.so*`, and the required ament index entries.
 * Unity Asset is ready to import into your Unity project. You can find it in `install/asset/` directory.
 * (optionally) To create `.unitypackage` in `install/unity_package`
     ```bash
-    create_unity_package.sh -u <your-path-to-unity-editor-executable>
+    ./create_unity_package.sh -u <your-path-to-unity-editor-executable>
     ```
-    > *NOTE* Unity license is required. 
+    > *NOTE* Unity license is required. The script removes stale package output before export, verifies that Unity produced a non-empty package, and writes a matching `.sha256.txt` next to the `.unitypackage`. By default the package filename includes the current ROS distro and `linux_x86_64`, for example `Ros2ForUnity_jazzy_linux_x86_64.unitypackage`.
 
 ## OS-Specific usage remarks
 
@@ -57,6 +59,16 @@ You can run Unity Editor or App executable from GUI (clicking) or from terminal 
 The best way to ensure that system-wide is to add `source /opt/ros/jazzy/setup.bash` to your `~/.profile` file.
 Note that you need to re-log for changes in `~/.profile` to take place.
 Running Unity Editor through Unity Hub is also supported.
+
+## Build troubleshooting
+
+These Ubuntu instructions are retained as legacy guidance for the current Jazzy maintenance line.
+
+* If `pull_repositories.sh` exits non-zero, fix the reported network, authentication, or existing `src/ros2cs` checkout problem before building. The script does not update an existing checkout in place; remove or move `src/ros2cs` when you intentionally want to re-import the pinned repositories.
+
+* If `build.sh` exits non-zero, do not package or copy the existing `install/asset` output as a fresh artifact. Re-run the failed command after fixing the reported error, or use `--clean-install` to remove stale staged asset files and ros2cs build/install outputs before rebuilding.
+
+* If package creation produces no `.unitypackage`, treat the artifact as missing and re-run package creation only after confirming `install/asset/Ros2ForUnity` came from a successful build.
 
 ## Usage troubleshooting
 

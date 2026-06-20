@@ -8,7 +8,8 @@
 
 Param (
     [Parameter(Mandatory=$false, Position=0)][string]$pluginDir = "",
-    [Parameter(Mandatory=$false, Position=1)][string]$installRoot = ""
+    [Parameter(Mandatory=$false, Position=1)][string]$installRoot = "",
+    [Parameter(Mandatory=$false)][switch]$help=$false
 )
 
 $ErrorActionPreference = 'Stop'
@@ -86,23 +87,41 @@ function Copy-FilesWithRobocopy {
     $global:LASTEXITCODE = 0
 }
 
-function Copy-DirectoryTreeWithRobocopy {
+function Remove-DeployedPluginOutputs {
     param(
-        [Parameter(Mandatory=$true)][string]$Source,
-        [Parameter(Mandatory=$true)][string]$Destination
+        [Parameter(Mandatory=$true)][string]$PluginDir,
+        [Parameter(Mandatory=$true)][string]$NativePluginDir,
+        [Parameter(Mandatory=$true)][string]$StreamingAssetsShareDestination
     )
 
-    if (-not (Test-Path -LiteralPath $Source)) {
-        throw "Copy source directory does not exist: $Source"
+    if (Test-Path -LiteralPath $NativePluginDir) {
+        Remove-Item -LiteralPath $NativePluginDir -Recurse -Force
     }
 
-    & robocopy $Source $Destination /E /R:1 /W:0 /NP /NFL /NDL /NJH /NJS
-    $robocopyExitCode = $LASTEXITCODE
-    # Robocopy success/informational codes are 0-7.
-    if ($robocopyExitCode -gt 7) {
-        throw "robocopy failed from '$Source' to '$Destination' with exit code $robocopyExitCode"
+    if (Test-Path -LiteralPath $StreamingAssetsShareDestination) {
+        Remove-Item -LiteralPath $StreamingAssetsShareDestination -Recurse -Force
     }
-    $global:LASTEXITCODE = 0
+
+    Get-ChildItem -LiteralPath $PluginDir -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -eq ".dll" -or $_.Name -eq "metadata_ros2cs.xml" } |
+        Remove-Item -Force
+}
+
+function Copy-MetadataFile {
+    param(
+        [Parameter(Mandatory=$true)][string]$Destination,
+        [Parameter(Mandatory=$true)][string]$Description
+    )
+
+    $metadataSource = Join-Path -Path $scriptPath -ChildPath "src\Ros2ForUnity\metadata_ros2cs.xml"
+    if (-not (Test-Path -LiteralPath $metadataSource)) {
+        throw "metadata_ros2cs.xml source file is missing: $metadataSource"
+    }
+
+    New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+    Copy-Item -LiteralPath $metadataSource -Destination $Destination -Force
+    Assert-RequiredFile (Join-Path -Path $Destination -ChildPath "metadata_ros2cs.xml")
+    Write-Host "Copied ros2cs metadata to $Description" -ForegroundColor Green
 }
 
 function Copy-FilePreservingRelativePath {
@@ -185,9 +204,17 @@ function Assert-RequiredFile {
     }
 }
 
-function Find-RosRuntimeDll {
-    param([Parameter(Mandatory=$true)][string]$FileName)
+function Assert-RequiredFileGlob {
+    param(
+        [Parameter(Mandatory=$true)][string]$Description,
+        [Parameter(Mandatory=$true)][string]$Pattern
+    )
+    if ($null -eq (Get-ChildItem -Path $Pattern -File -ErrorAction SilentlyContinue | Select-Object -First 1)) {
+        throw "Required deployed $Description is missing: expected $Pattern"
+    }
+}
 
+function Get-RosRuntimeSearchDirs {
     $candidateDirs = New-Object System.Collections.Generic.List[string]
     if (-not [string]::IsNullOrWhiteSpace($env:ROS2_ROOT)) {
         $candidateDirs.Add((Join-Path -Path $env:ROS2_ROOT -ChildPath "bin")) | Out-Null
@@ -198,14 +225,19 @@ function Find-RosRuntimeDll {
         }
     }
 
-    foreach ($dir in ($candidateDirs | Select-Object -Unique)) {
-        $candidate = Join-Path -Path $dir -ChildPath $FileName
-        if (Test-Path -LiteralPath $candidate) {
-            return $candidate
-        }
+    return $candidateDirs | Select-Object -Unique
+}
+
+function Find-RosRuntimeDlls {
+    param([Parameter(Mandatory=$true)][string]$Pattern)
+
+    $matches = New-Object System.Collections.Generic.List[string]
+    foreach ($dir in Get-RosRuntimeSearchDirs) {
+        Get-ChildItem -LiteralPath $dir -Filter $Pattern -File -ErrorAction SilentlyContinue |
+            ForEach-Object { $matches.Add($_.FullName) | Out-Null }
     }
 
-    return $null
+    return $matches | Select-Object -Unique
 }
 
 function Find-RosRootCandidates {
@@ -241,7 +273,7 @@ INSTALL_ROOT - ros2cs install prefix. Defaults to this repository's install dire
 "
 }
 
-if ($pluginDir -eq "--help" -Or $pluginDir -eq "-h")
+if ($help -or $pluginDir -eq "--help" -Or $pluginDir -eq "-h")
 {
     Print-Help
     exit 0
@@ -255,6 +287,23 @@ if ([string]::IsNullOrEmpty($pluginDir))
 
 try {
     if (Test-Path -LiteralPath $pluginDir) {
+        $windowsPluginDir = Join-Path -Path $pluginDir -ChildPath "Windows\x86_64"
+        $assetRoot = Split-Path -Parent $pluginDir
+        $shareDestination = Join-Path -Path $windowsPluginDir -ChildPath "share"
+        $assetInstallRoot = Split-Path -Parent $assetRoot
+        $legacyNestedStreamingAssets = Join-Path -Path $assetRoot -ChildPath "StreamingAssets"
+        $streamingAssetsShareDestination = Join-Path -Path $assetInstallRoot -ChildPath "StreamingAssets\Ros2ForUnity\share"
+
+        Invoke-Timed "stale plugin cleanup" {
+            Remove-DeployedPluginOutputs `
+                -PluginDir $pluginDir `
+                -NativePluginDir $windowsPluginDir `
+                -StreamingAssetsShareDestination $streamingAssetsShareDestination
+            if (Test-Path -LiteralPath $legacyNestedStreamingAssets) {
+                Remove-Item -LiteralPath $legacyNestedStreamingAssets -Recurse -Force
+            }
+        }
+
         Write-Host "Copying plugins to: '$pluginDir' ..."
         $dotnetDir = Join-Path -Path $installRoot -ChildPath "lib\dotnet"
         if (-not (Test-Path -LiteralPath $dotnetDir)) {
@@ -267,7 +316,6 @@ try {
         Assert-RequiredFile (Join-Path -Path $pluginDir -ChildPath "ros2cs_core.dll")
 
         Write-Host "Plugins copied to: '$pluginDir'" -ForegroundColor Green
-        $windowsPluginDir = Join-Path -Path $pluginDir -ChildPath "Windows\x86_64"
         Write-Host "Copying libraries to: '$windowsPluginDir' ..."
         $binDir = Join-Path -Path $installRoot -ChildPath "bin"
         if (-not (Test-Path -LiteralPath $binDir)) {
@@ -293,14 +341,6 @@ try {
             }
         }
 
-        $assetRoot = Split-Path -Parent $pluginDir
-        $shareDestination = Join-Path -Path $windowsPluginDir -ChildPath "share"
-        $assetInstallRoot = Split-Path -Parent $assetRoot
-        $legacyNestedStreamingAssets = Join-Path -Path $assetRoot -ChildPath "StreamingAssets"
-        $streamingAssetsShareDestination = Join-Path -Path $assetInstallRoot -ChildPath "StreamingAssets\Ros2ForUnity\share"
-        if (Test-Path -LiteralPath $legacyNestedStreamingAssets) {
-            Remove-Item -LiteralPath $legacyNestedStreamingAssets -Recurse -Force
-        }
         foreach ($ros2Root in Find-RosRootCandidates) {
             $ros2Share = Join-Path -Path $ros2Root -ChildPath "share"
             if (Test-Path -LiteralPath $ros2Share) {
@@ -312,17 +352,20 @@ try {
             }
         }
 
-        $rosRootRuntimeDlls = @(
+        $rosRootRuntimeDllPatterns = @(
             "class_loader.dll",
-            "fastdds-3.6.dll",
+            "fastdds*.dll",
             "rcl_logging_implementation.dll",
             "rosidl_buffer_backend_registry.dll"
         )
         $rosRootRuntimeSources = @()
-        foreach ($dllName in $rosRootRuntimeDlls) {
-            $runtimeDll = Find-RosRuntimeDll $dllName
-            if ($null -ne $runtimeDll) {
-                $rosRootRuntimeSources += $runtimeDll
+        $runtimeSearchDirs = @(Get-RosRuntimeSearchDirs)
+        foreach ($dllPattern in $rosRootRuntimeDllPatterns) {
+            $runtimeDlls = @(Find-RosRuntimeDlls $dllPattern)
+            if ($runtimeDlls.Count -eq 0) {
+                Write-Warning "Could not find required ROS2 runtime DLL pattern '$dllPattern'. Searched: $($runtimeSearchDirs -join '; ')"
+            } else {
+                $rosRootRuntimeSources += $runtimeDlls
             }
         }
         if ($rosRootRuntimeSources.Count -gt 0) {
@@ -333,10 +376,15 @@ try {
             }
         }
 
+        Invoke-Timed "ros2cs metadata deploy" {
+            Copy-MetadataFile -Destination $pluginDir -Description "Plugins root"
+            Copy-MetadataFile -Destination $windowsPluginDir -Description "Windows/x86_64 plugin directory"
+        }
+
         if ($hasStandaloneDir -or $hasResourcesDir -or (Test-Path -LiteralPath (Join-Path -Path $binDir -ChildPath "rcl.dll"))) {
             Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "rcl.dll")
             Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "class_loader.dll")
-            Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "fastdds-3.6.dll")
+            Assert-RequiredFileGlob -Description "Fast DDS runtime" -Pattern (Join-Path -Path $windowsPluginDir -ChildPath "fastdds*.dll")
             Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "rmw_implementation.dll")
             Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "rosidl_buffer_backend_registry.dll")
             Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "rcl_logging_implementation.dll")

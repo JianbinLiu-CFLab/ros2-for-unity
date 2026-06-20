@@ -220,15 +220,22 @@ internal class ROS2ForUnity : IDisposable
     private static void SetStandalonePrefixPath()
     {
         string prefixPath = GetRos2ForUnityPath();
+        string prefixSource = "asset root";
         string streamingAssetsPrefixPath = Path.Combine(Application.streamingAssetsPath, ros2ForUnityAssetFolderName);
         string pluginPrefixPath = GetPluginPath();
         if (Directory.Exists(Path.Combine(streamingAssetsPrefixPath, "share")))
         {
             prefixPath = streamingAssetsPrefixPath;
+            prefixSource = "StreamingAssets";
         }
         else if (Directory.Exists(Path.Combine(pluginPrefixPath, "share")))
         {
             prefixPath = pluginPrefixPath;
+            prefixSource = "plugin directory";
+        }
+        else if (!Directory.Exists(Path.Combine(prefixPath, "share")))
+        {
+            Debug.LogWarning("Standalone AMENT_PREFIX_PATH fallback has no share directory: " + prefixPath);
         }
         string currentPrefixPath = Environment.GetEnvironmentVariable("AMENT_PREFIX_PATH");
         char envPathSep = GetOS() == Platform.Windows ? ';' : ':';
@@ -236,6 +243,7 @@ internal class ROS2ForUnity : IDisposable
         if (String.IsNullOrEmpty(currentPrefixPath))
         {
             SetProcessEnvironmentVariable("AMENT_PREFIX_PATH", prefixPath);
+            Debug.Log("AMENT_PREFIX_PATH set to: " + prefixPath + " (source: " + prefixSource + ")");
             return;
         }
 
@@ -247,11 +255,13 @@ internal class ROS2ForUnity : IDisposable
         {
             if (String.Equals(entry.Trim(), prefixPath, comparison))
             {
+                Debug.Log("AMENT_PREFIX_PATH already contains: " + prefixPath + " (source: " + prefixSource + ")");
                 return;
             }
         }
 
         SetProcessEnvironmentVariable("AMENT_PREFIX_PATH", prefixPath + envPathSep + currentPrefixPath);
+        Debug.Log("AMENT_PREFIX_PATH prepended with: " + prefixPath + " (source: " + prefixSource + ")");
     }
 
     private static void SetStandaloneRmwImplementation()
@@ -281,6 +291,19 @@ internal class ROS2ForUnity : IDisposable
         {
             SetProcessEnvironmentVariable(Ros2csSpinFallbackEnvVar, "direct");
             Debug.Log("ROS2CS spin fallback enabled for Lyrical standalone runtime.");
+        }
+    }
+
+    private static void WarnIfLyricalSpinFallbackUnset(string ros2Codename, bool standalone)
+    {
+        if (standalone || !String.Equals(ros2Codename, "lyrical", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (String.IsNullOrEmpty(Environment.GetEnvironmentVariable(Ros2csSpinFallbackEnvVar)))
+        {
+            Debug.LogWarning("Lyrical detected in non-standalone mode. Set " + Ros2csSpinFallbackEnvVar + "=direct before launching Unity.");
         }
     }
 
@@ -512,18 +535,27 @@ internal class ROS2ForUnity : IDisposable
             // Self checks
             CheckROSSupport(currentRos2Version);
             CheckIntegrity();
+            bool standaloneBuild = IsStandalone();
+            WarnIfLyricalSpinFallbackUnset(currentRos2Version, standaloneBuild);
 
             // Library loading
+            if (standaloneBuild)
+            {
+                // For standalone, currentRos2Version comes from metadata, not ROS_DISTRO.
+                // SetStandaloneRosDistro must stay after CheckROSSupport/CheckIntegrity.
+                SetStandaloneRosDistro(currentRos2Version);
+                SetStandaloneRos2csSpinFallback(currentRos2Version);
+            }
             if (GetOS() == Platform.Windows) {
                 // Windows version can run standalone, modifies PATH to ensure all plugins visibility.
                 if (!pathConfigured)
                 {
+                    // pathConfigured is intentionally not reset on shutdown; the process PATH
+                    // persists across Play/Stop when Unity domain reload is disabled.
                     SetEnvPathVariable();
                 }
-                if (IsStandalone())
+                if (standaloneBuild)
                 {
-                    SetStandaloneRosDistro(currentRos2Version);
-                    SetStandaloneRos2csSpinFallback(currentRos2Version);
                     SetStandalonePrefixPath();
                     SetStandaloneRmwImplementation();
                     SetStandaloneRcutilsConsoleMode();
@@ -534,6 +566,12 @@ internal class ROS2ForUnity : IDisposable
                 if (currentRos2Version == "foxy") {
                     ROS2.GlobalVariables.preloadLibrary = true;
                     ROS2.GlobalVariables.preloadLibraryName = "librcpputils.so";
+                }
+                if (standaloneBuild)
+                {
+                    SetStandalonePrefixPath();
+                    SetStandaloneRmwImplementation();
+                    SetStandaloneRcutilsConsoleMode();
                 }
             }
 
@@ -608,6 +646,7 @@ internal class ROS2ForUnity : IDisposable
 
     private static void ShutdownShared()
     {
+        ROS2UnityComponent.StopAllExecutorsForRosShutdown();
         lock (initMutex)
         {
             if (!isInitialized)

@@ -64,7 +64,7 @@ It is necessary to complete the `ros2cs` Windows prerequisites for the same bran
 
 ### Steps
 
-* Make sure [long paths on Windows are enabled](https://github.com/RobotecAI/ros2cs/blob/master/README-WINDOWS.md#important-notices)
+* Make sure [long paths on Windows are enabled](https://github.com/JianbinLiu-CFLab/ros2cs/blob/main/README-WINDOWS.md#important-notices)
 * Make sure you open a Visual Studio Developer PowerShell compatible with the installed ROS 2 Jazzy toolchain.
 * Prefer Ninja generator builds on Windows. Newer Visual Studio generator names may not be supported by the Jazzy-pinned CMake/colcon stack.
 * Clone this project.
@@ -93,16 +93,17 @@ It is necessary to complete the `ros2cs` Windows prerequisites for the same bran
     # overlay mode
     ./build.ps1
     ```
-  * You can build with `-clean_install` to make sure your installation directory is cleaned before deploying.
+  * You can build with `-clean_install` to remove the R2FU install tree plus the configured ros2cs build, log, and install roots before deploying.
   * Build scripts print a phase timing summary covering metadata generation, ros2cs build, Unity asset staging, plugin deploy, and metadata copy.
   * Use `-quiet` to reduce live colcon terminal output while keeping logs under the configured colcon log base. Use `-console_direct` to preserve the chatty `console_direct+` output.
-  * Windows standalone deployment validates required managed and native files after copy, including `ros2cs_common.dll`, `ros2cs_core.dll`, `rcl.dll`, and `rmw_implementation.dll`.
+  * `build.ps1` warns when the local `src\ros2cs` checkout does not match `ros2cs.repos`; pass `-strict_pin` to make the mismatch fail the build.
+  * Windows standalone deployment validates required managed and native closure files after copy, including `ros2cs_common.dll`, `ros2cs_core.dll`, `rcl.dll`, `class_loader.dll`, `fastdds*.dll`, `rmw_implementation.dll`, `rcl_logging_implementation.dll`, `rosidl_buffer_backend_registry.dll`, and the required ament index entries.
 * Unity Asset is ready to import into your Unity project. You can find it in `install/asset/` directory.
 * (optionally) To create `.unitypackage` in `install/unity_package`
   ```powershell
-  create_unity_package.ps1
+  .\create_unity_package.ps1 -unity_path <your-path-to-unity-editor-executable>
   ```
-  > *NOTE* Please provide path to your Unity executable when prompted. Unity license is required. In case your Unity license has expired, the `create_unity_package.ps1` won't throw any errors but `Ros2ForUnity.unitypackage` won't be generated too.
+  > *NOTE* Unity license is required. The script removes stale package output before export, verifies that Unity produced a non-empty package, and writes a matching `.sha256.txt` next to the `.unitypackage`. By default the package filename includes the current ROS distro and `windows_x86_64`, for example `Ros2ForUnity_jazzy_windows_x86_64.unitypackage`.
 
 ## Unity Load smoke
 
@@ -139,6 +140,12 @@ R2FU_UNITY_LOAD_SMOKE_PASS
 
 - If a standalone build is unexpectedly slow during native DLL copy or artifact staging, check antivirus/Defender real-time scanning first. This repository does not change Defender policy automatically; any exclusions should be a deliberate local or CI-machine decision.
 
+- If `pull_repositories.ps1` exits non-zero, fix the reported network, authentication, or existing `src\ros2cs` checkout problem before building. The script does not update an existing checkout in place; remove or move `src\ros2cs` when you intentionally want to re-import the pinned repositories.
+
+- If `build.ps1` exits non-zero, do not package the existing `install\asset` output as a fresh artifact. Re-run the failed command after fixing the reported error, or use `-clean_install` to remove stale staged asset files and ros2cs build/install outputs before rebuilding.
+
+- If packaging creates no `.unitypackage` or zip artifact, treat the artifact as missing. Re-run package creation after confirming `install\asset\Ros2ForUnity` exists and came from a successful build.
+
 - If you see one of the following errors:
 ><script_name> is not digitally signed
 
@@ -169,7 +176,7 @@ pip uninstall numpy
 pip install numpy
 ```
 
-**If no solution of your problem is present in the section above, please make sure to check out `ros2cs` [Troubleshooting section](https://github.com/RobotecAI/ros2cs/blob/master/README-WINDOWS.md#troubleshooting)**
+**If no solution of your problem is present in the section above, please make sure to check out this fork's `ros2cs` [Troubleshooting section](https://github.com/JianbinLiu-CFLab/ros2cs/blob/main/README-WINDOWS.md#troubleshooting). RobotecAI upstream documentation is useful historical reference, but this fork's Jazzy Windows toolchain may differ.**
 
 ## OS-Specific usage remarks
 

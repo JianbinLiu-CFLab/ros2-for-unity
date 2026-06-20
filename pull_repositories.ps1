@@ -28,14 +28,14 @@ Push-Location $scriptPath
 try {
     Write-Host "========================================="
     Write-Host "* Pulling ros2cs repository:"
-    vcs import --input $ros2cs_repos
+    vcs import --shallow --input $ros2cs_repos
     if ($LASTEXITCODE -ne 0) { throw "vcs import ros2cs.repos failed with exit code $LASTEXITCODE" }
 
     Write-Host ""
     Write-Host "========================================="
     Write-Host "Pulling custom repositories:"
     if (Test-HasVcsRepositoryEntries -Path $custom_repos) {
-        vcs import --input $custom_repos
+        vcs import --shallow --input $custom_repos
         if ($LASTEXITCODE -ne 0) { throw "vcs import custom messages failed with exit code $LASTEXITCODE" }
     } else {
         Write-Host "No custom repositories defined; skipping vcs import."
