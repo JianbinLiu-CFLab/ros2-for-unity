@@ -44,7 +44,6 @@ public class ROS2ClientExample : MonoBehaviour
     private IClient<addTwoIntsReq, addTwoIntsResp> addTwoIntsClient;
     private bool isRunning = false;
     private int runningCoroutines = 0;
-    private Task<addTwoIntsResp> asyncTask;
     private readonly WaitForSecondsRealtime servicePollWait = new WaitForSecondsRealtime(ServicePollIntervalSeconds);
 
     // Coroutine: waits for service availability, sends one AddTwoInts request per iteration, then waits before the next call.
@@ -73,30 +72,55 @@ public class ROS2ClientExample : MonoBehaviour
             request.A = Random.Range(MinRequestOperand, MaxRequestOperandExclusive);
             request.B = Random.Range(MinRequestOperand, MaxRequestOperandExclusive);
             
-            asyncTask = addTwoIntsClient.CallAsync(request);
+            Task<addTwoIntsResp> pendingTask = addTwoIntsClient.CallAsync(request);
             float deadline = Time.realtimeSinceStartup + ServiceCallTimeoutSeconds;
             yield return new WaitUntil(() =>
-                asyncTask.IsCompleted ||
+                pendingTask.IsCompleted ||
                 ros2Unity == null ||
                 !ros2Unity.Ok() ||
                 Time.realtimeSinceStartup >= deadline);
-            if (!asyncTask.IsCompleted)
+            if (!pendingTask.IsCompleted)
             {
                 Debug.LogWarning("ROS2ClientExample: async service call timed out.");
+                ObserveTimedOutCall(pendingTask);
                 yield return servicePollWait;
                 continue;
             }
-            if (asyncTask.IsFaulted)
+            if (pendingTask.IsFaulted)
             {
-                Debug.LogException(asyncTask.Exception);
+                Debug.LogException(pendingTask.Exception);
             }
-            else if (!asyncTask.IsCanceled)
+            else if (!pendingTask.IsCanceled)
             {
-                Debug.Log("Got async answer " + asyncTask.Result.Sum);
+                addTwoIntsResp response = pendingTask.Result;
+                try
+                {
+                    Debug.Log("Got async answer " + response.Sum);
+                }
+                finally
+                {
+                    response.Dispose();
+                }
             }
             
             yield return servicePollWait;
         }
+    }
+
+    private static void ObserveTimedOutCall(Task<addTwoIntsResp> timedOutTask)
+    {
+        timedOutTask.ContinueWith(task =>
+        {
+            if (task.IsFaulted)
+            {
+                // Observe the exception so Unity does not surface it later as an unobserved task fault.
+                var ignored = task.Exception;
+            }
+            else if (task.Status == TaskStatus.RanToCompletion)
+            {
+                task.Result.Dispose();
+            }
+        }, TaskContinuationOptions.ExecuteSynchronously);
     }
 
     void Start()

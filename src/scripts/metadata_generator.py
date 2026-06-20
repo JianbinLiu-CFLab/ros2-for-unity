@@ -25,6 +25,7 @@ import subprocess
 import pathlib
 import os
 import io
+from typing import Optional
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
 # metadata_generator.py lives at <repo>/src/scripts; parents[1] is the repository root.
@@ -84,7 +85,7 @@ def get_runtime_plugin_files(plugins_dir: pathlib.Path) -> list[str]:
             runtime_files.append(path.relative_to(plugins_dir).as_posix())
     return sorted(runtime_files)
 
-def add_plugin_inventory(root: ET.Element, plugins_dir: pathlib.Path | None) -> None:
+def add_plugin_inventory(root: ET.Element, plugins_dir: Optional[pathlib.Path]) -> None:
     if plugins_dir is None:
         return
 
