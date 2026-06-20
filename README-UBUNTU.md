@@ -1,3 +1,9 @@
+<!--
+Modifications Copyright (c) 2026 Jianbin Liu.
+Modifications by Jianbin Liu:
+- Reframed Ubuntu instructions as legacy guidance for the current Jazzy maintenance line and pointed ros2cs prerequisites to the maintained fork.
+-->
+
 # ROS2 For Unity - Ubuntu 20.04, 22.04, and 24.04
 
 This readme contains information specific to Ubuntu 20.04/22.04/24.04. For general information, please see [README.md](README.md)

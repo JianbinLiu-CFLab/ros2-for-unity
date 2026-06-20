@@ -1,8 +1,15 @@
 
+<!--
+Modifications Copyright (c) 2026 Jianbin Liu.
+Modifications by Jianbin Liu:
+- Documented the JianbinLiu-CFLab Jazzy maintenance line, validation evidence, release artifacts, and ros2cs fork pin boundary.
+-->
+
 Ros2 For Unity
 ===============
 
 > [!NOTE]  
+> **Upstream note (RobotecAI):**
 > This project is officially supported for [AWSIM](https://github.com/tier4/AWSIM) users of Autoware. However, the Robotec team is unable to provide support and maintain the project for the general
 > community. If you are looking for an alternative to Unity3D, [Open 3D Engine (O3DE)](https://o3de.org/) is a great, open-source and free simulation engine with excellent [ROS 2 integration](https://development--o3deorg.netlify.app/docs/user-guide/interactivity/), which Robotec is actively supporting and developing. 
 
@@ -26,7 +33,7 @@ https://github.com/JianbinLiu-CFLab/ros2cs.git
 version: 66ebf542837428b8d0d6069d71f7fc07c393c1a0
 ```
 
-The `main` branch remains the active integration line, while public build inputs are pinned to verified preview commit hashes for reproducibility.
+The `main` branch remains the active integration line, while public build inputs are pinned to verified preview commit hashes for reproducibility. Pin history and purpose are tracked in `ros2cs.repos`.
 
 The upstream RobotecAI repositories remain the original source and licensing history, but they are not the active integration target for this Jazzy/R2FU maintenance line. Upstream changes should be reviewed and cherry-picked deliberately.
 
