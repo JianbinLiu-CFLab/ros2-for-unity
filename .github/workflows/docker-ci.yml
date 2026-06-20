@@ -1,0 +1,29 @@
+name: Docker CI Smoke
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  docker-ci:
+    name: Linux Jazzy Docker CI smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: docker
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: ./build_image.sh
+
+      - name: Run Docker CI smoke against local checkout
+        env:
+          R2FU_LOCAL_CHECKOUT: ${{ github.workspace }}
+        run: ./run_container.sh r2fu-ci
