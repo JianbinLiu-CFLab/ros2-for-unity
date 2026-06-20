@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Jianbin Liu.
+# Fork CI candidate: Linux/Jazzy Docker smoke only.
+# This does not build Windows artifacts and does not run Unity Editor or Player.
 name: Docker CI Smoke
 
 on:
@@ -12,6 +15,7 @@ jobs:
   docker-ci:
     name: Linux Jazzy Docker CI smoke
     runs-on: ubuntu-latest
+    # Full standalone build + ros2cs tests can be slow on cold GitHub runners.
     timeout-minutes: 120
     defaults:
       run:
@@ -26,4 +30,7 @@ jobs:
       - name: Run Docker CI smoke against local checkout
         env:
           R2FU_LOCAL_CHECKOUT: ${{ github.workspace }}
-        run: ./run_container.sh r2fu-ci
+        run: |
+          set -o pipefail
+          ./run_container.sh r2fu-ci | tee /tmp/r2fu-docker-ci.log
+          grep -q "R2FU_DOCKER_CI_SMOKE_PASS" /tmp/r2fu-docker-ci.log

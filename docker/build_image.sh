@@ -13,6 +13,7 @@ if [ -z "${ROS_DISTRO:-}" ]; then
 fi
 
 IMAGE_NAME=${R2FU_DOCKER_IMAGE:-ros2-for-unity}
+# .NET 8 is the default ros2cs build SDK in the Docker path; override only after compatibility testing.
 DOTNET_SDK_PACKAGE=${R2FU_DOTNET_SDK_PACKAGE:-dotnet-sdk-8.0}
 
 export DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-1}

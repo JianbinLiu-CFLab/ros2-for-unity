@@ -90,6 +90,7 @@ When `R2FU_LOCAL_CHECKOUT` is set, the container copies that checkout into its w
 The smoke checks required managed DLLs, managed assembly loadability, required Linux native libraries, minimum managed/native artifact counts, `ldd` closure for Linux native libraries, and basic ROS 2 CLI context availability.
 
 Default smoke thresholds are `R2FU_DOCKER_MIN_MANAGED_FILES=10` and `R2FU_DOCKER_MIN_NATIVE_FILES=20`. Override them only when intentionally changing the artifact layout.
+The ROS CLI smoke timeout defaults to `R2FU_DOCKER_ROS_CLI_TIMEOUT=30s`, which is intended to cover Fast DDS loopback discovery on cold CI runners.
 
 ## Validation signal matrix
 

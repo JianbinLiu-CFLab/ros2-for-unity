@@ -50,6 +50,7 @@ if [ -n "$R2FU_LOCAL_CHECKOUT" ]; then
     echo "R2FU_LOCAL_CHECKOUT does not exist: $R2FU_LOCAL_CHECKOUT" >&2
     exit 1
   fi
+  # Mount local-only work read-only; entrypoint copies it into the writable workdir before building.
   R2FU_LOCAL_CHECKOUT_PATH=$(readlink -f "$R2FU_LOCAL_CHECKOUT")
   docker_args+=(
     -e "R2FU_LOCAL_CHECKOUT=/workdir/local-checkout"
