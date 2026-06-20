@@ -53,8 +53,18 @@ public class ROS2TalkerExample : MonoBehaviour
             if (ros2Node == null)
             {
                 ros2Node = ros2Unity.CreateNode("ROS2UnityTalkerNode");
+            }
+            if (chatter_pub == null)
+            {
                 chatter_pub = ros2Node.CreatePublisher<std_msgs.msg.String>("chatter");
+            }
+            if (msg == null)
+            {
                 msg = new std_msgs.msg.String();
+            }
+            if (chatter_pub == null)
+            {
+                return;
             }
 
             i++;
@@ -65,6 +75,17 @@ public class ROS2TalkerExample : MonoBehaviour
             msg.Data = msgBuilder.ToString();
             chatter_pub.Publish(msg);
         }
+    }
+
+    void OnDestroy()
+    {
+        if (ros2Unity != null && ros2Node != null)
+        {
+            ros2Unity.RemoveNode(ros2Node);
+        }
+        chatter_pub = null;
+        ros2Node = null;
+        msg = null;
     }
 }
 

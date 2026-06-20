@@ -17,16 +17,19 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
-using ROS2;
 
 using addTwoIntsReq = example_interfaces.srv.AddTwoInts_Request;
 using addTwoIntsResp = example_interfaces.srv.AddTwoInts_Response;
+
+namespace ROS2
+{
 
 /// <summary>
 /// An example class provided for testing of basic ROS2 client
 /// </summary>
 public class ROS2ClientExample : MonoBehaviour
 {
+    private const float ServiceCallTimeoutSeconds = 5.0f;
     private ROS2UnityComponent ros2Unity;
     private ROS2Node ros2Node;
     private IClient<addTwoIntsReq, addTwoIntsResp> addTwoIntsClient;
@@ -60,10 +63,17 @@ public class ROS2ClientExample : MonoBehaviour
             request.B = Random.Range(0, 100);
             
             asyncTask = addTwoIntsClient.CallAsync(request);
-            yield return new WaitUntil(() => asyncTask.IsCompleted || ros2Unity == null || !ros2Unity.Ok());
+            float deadline = Time.realtimeSinceStartup + ServiceCallTimeoutSeconds;
+            yield return new WaitUntil(() =>
+                asyncTask.IsCompleted ||
+                ros2Unity == null ||
+                !ros2Unity.Ok() ||
+                Time.realtimeSinceStartup >= deadline);
             if (!asyncTask.IsCompleted)
             {
-                yield break;
+                Debug.LogWarning("ROS2ClientExample: async service call timed out.");
+                yield return waitOneSecond;
+                continue;
             }
             if (asyncTask.IsFaulted)
             {
@@ -99,6 +109,9 @@ public class ROS2ClientExample : MonoBehaviour
             if (ros2Node == null)
             {
                 ros2Node = ros2Unity.CreateNode("ROS2UnityClient");
+            }
+            if (ros2Node != null && addTwoIntsClient == null)
+            {
                 addTwoIntsClient = ros2Node.CreateClient<addTwoIntsReq, addTwoIntsResp>(
                     "add_two_ints");
             }
@@ -138,4 +151,17 @@ public class ROS2ClientExample : MonoBehaviour
             }
         }
     }
+
+    void OnDestroy()
+    {
+        if (ros2Unity != null && ros2Node != null)
+        {
+            ros2Unity.RemoveNode(ros2Node);
+        }
+        addTwoIntsClient = null;
+        ros2Node = null;
+        isRunning = false;
+    }
 }
+
+}  // namespace ROS2

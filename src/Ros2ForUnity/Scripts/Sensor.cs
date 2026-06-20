@@ -20,13 +20,17 @@ namespace ROS2
 {
 
 /// <summary>
-/// An abstract base class for ROS2-enabled sensor.
+/// Historical abstract MonoBehaviour base class for ROS2-enabled sensors.
 /// </summary>
+/// <remarks>
+/// Despite the I-prefix this is not a C# interface; derive from it instead of implementing it.
+/// The name is preserved for Unity serialization and downstream script compatibility.
+/// </remarks>
 public abstract class ISensor : MonoBehaviour
 {
     /// <summary>
-    /// The desired update frequency for the sensor. The maximum can be the rate with which FixedUpdate is called,
-    /// which depends on the physics step (usually 50 or 100 times per second).
+    /// The desired update frequency for the sensor. The base class refreshes desiredFrameTime when this value
+    /// changes at runtime, but subclasses must still use desiredFrameTime in HasNewData() to apply the limit.
     /// </summary>
     public double desiredUpdateFreq = 25.0;
 
@@ -43,7 +47,8 @@ public abstract class ISensor : MonoBehaviour
     public string topicName = "";
 
     /// <summary>
-    /// Controls whether sensor is publishing messages
+    /// Controls whether sensor is publishing messages. External writes only gate publishing; disabling or
+    /// destroying the component is still responsible for unregistering the executor callback.
     /// </summary>
     public bool publishing = false;
 
@@ -85,6 +90,7 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
     /// </summary>
     protected double desiredFrameTime = 0.0;
     private const double minimumFrequency = 0.001;
+    private double cachedDesiredUpdateFreq = Double.NaN;
     private Publisher<T> publisher;
     private ROS2UnityComponent ros2UnityComponent;
     private ROS2Node ros2Node;
@@ -157,7 +163,7 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
     }
 
     /// <summary>
-    /// Sensor sampling runs on Unity main thread in Update(); this executor-thread method only publishes a cached reading.
+    /// Sensor sampling and timestamping run on Unity main thread in Update(); this executor-thread method only publishes a cached reading.
     /// </summary>
     internal void ExecutorThreadSensorPublishAction()
     {
@@ -183,12 +189,6 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
             return;
         }
 
-        MessageWithHeader readingsHeader = readingToPublish;
-        if (!nodeToUse.TryUpdateROSTimestamp(ref readingsHeader))
-        {
-            UnregisterExecutable();
-            return;
-        }
         publisherToUse.Publish(readingToPublish);
     }
 
@@ -206,6 +206,8 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
 
     private void UpdateReadingOnMainThread()
     {
+        RefreshDesiredFrameTimeIfNeeded();
+
         if (!publishing || publisher == null || ros2Node == null || ros2Node.IsDisposed ||
             ros2UnityComponent == null || !ros2UnityComponent.Ok())
         {
@@ -225,6 +227,13 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
         }
 
         acquiredReading.SetHeaderFrame(frameName());
+        MessageWithHeader acquiredHeader = acquiredReading;
+        if (!ros2Node.TryUpdateROSTimestamp(ref acquiredHeader))
+        {
+            UnregisterExecutable();
+            return;
+        }
+
         lock (readingsMutex)
         {
             readings = acquiredReading;
@@ -302,6 +311,15 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
             desiredUpdateFreq = minimumFrequency;
         }
         desiredFrameTime = 1.0 / desiredUpdateFreq;
+        cachedDesiredUpdateFreq = desiredUpdateFreq;
+    }
+
+    private void RefreshDesiredFrameTimeIfNeeded()
+    {
+        if (!desiredUpdateFreq.Equals(cachedDesiredUpdateFreq))
+        {
+            CalculateFrameTime();
+        }
     }
 }
 

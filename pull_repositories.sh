@@ -20,7 +20,7 @@ echo "========================================="
 echo "* Pulling ros2cs repository:"
 # Anchor vcs imports at the repository root so callers can run this script from any CWD.
 cd "$SCRIPTPATH"
-if ! vcs import --shallow --input "$SCRIPTPATH/ros2cs.repos"; then
+if ! vcs import --input "$SCRIPTPATH/ros2cs.repos"; then
     echo "vcs import ros2cs.repos failed." >&2
     exit 1
 fi

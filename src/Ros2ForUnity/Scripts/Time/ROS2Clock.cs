@@ -20,7 +20,7 @@ namespace ROS2
 {
 
 /// <summary>
-/// A ros2 clock class that for interfacing between a time source (unity or ros2 system time) and ros2cs messages, structs. 
+/// A ros2 clock class for interfacing between a time source (unity or ros2 system time) and ros2cs messages.
 /// </summary>
 public class ROS2Clock : IDisposable
 {
@@ -45,6 +45,13 @@ public class ROS2Clock : IDisposable
         clockMessage.Clock_.Nanosec = nanoseconds;
     }
 
+    /// <summary>
+    /// Updates a generated builtin_interfaces.msg.Time message in place.
+    /// </summary>
+    /// <remarks>
+    /// Generated ros2cs messages are reference types, so the Time instance itself is passed by value while
+    /// its Sec/Nanosec fields are updated.
+    /// </remarks>
     public void UpdateROSClockTime(builtin_interfaces.msg.Time time)
     {
         int seconds;

@@ -8,6 +8,7 @@
 
 ARG ROS2_DISTRO=jazzy
 FROM ros:${ROS2_DISTRO}-ros-base
+ARG DOTNET_SDK_PACKAGE=dotnet-sdk-8.0
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -24,7 +25,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     git \
     patchelf \
     rsync \
-    dotnet-sdk-8.0 \
+    ${DOTNET_SDK_PACKAGE} \
     ros-${ROS_DISTRO}-test-msgs \
     ros-${ROS_DISTRO}-fastrtps \
     ros-${ROS_DISTRO}-rmw-fastrtps-cpp \

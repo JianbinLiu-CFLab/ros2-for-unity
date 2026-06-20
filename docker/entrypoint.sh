@@ -16,6 +16,7 @@ R2FU_REF=${R2FU_REF:-main}
 R2FU_WORKDIR=${R2FU_WORKDIR:-/workdir/ros2-for-unity}
 R2FU_CLONE_TMP=${R2FU_CLONE_TMP:-/workdir/.ros2-for-unity}
 R2FU_CUSTOM_MESSAGES_DIR=${R2FU_CUSTOM_MESSAGES_DIR:-/workdir/custom_messages}
+R2FU_LOCAL_CHECKOUT=${R2FU_LOCAL_CHECKOUT:-}
 
 if [ -z "${HOME:-}" ] || [ ! -w "${HOME:-/}" ]; then
   export HOME=/tmp/r2fu-home
@@ -27,28 +28,46 @@ mkdir -p "$NUGET_PACKAGES"
 prepare_workspace() {
   echo "######################################################################"
   echo ""
-  echo "Preparing '$R2FU_REF' from '$R2FU_REPO'"
+  if [ -n "$R2FU_LOCAL_CHECKOUT" ]; then
+    echo "Preparing local checkout from '$R2FU_LOCAL_CHECKOUT'"
+  else
+    echo "Preparing '$R2FU_REF' from '$R2FU_REPO'"
+  fi
   echo ""
   echo "######################################################################"
   echo ""
 
-  rm -rf "$R2FU_CLONE_TMP"
-  if [[ "$R2FU_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
-    git clone "$R2FU_REPO" "$R2FU_CLONE_TMP"
-    cd "$R2FU_CLONE_TMP"
-    git checkout "$R2FU_REF"
+  if [ -n "$R2FU_LOCAL_CHECKOUT" ]; then
+    if [ ! -d "$R2FU_LOCAL_CHECKOUT" ]; then
+      echo "R2FU_LOCAL_CHECKOUT does not exist: $R2FU_LOCAL_CHECKOUT" >&2
+      exit 1
+    fi
+    mkdir -p "$R2FU_WORKDIR"
+    find "$R2FU_WORKDIR" -mindepth 1 -maxdepth 1 ! -name install -exec rm -rf {} +
+    rsync -a --delete \
+      --exclude install \
+      --exclude build \
+      --exclude log \
+      "$R2FU_LOCAL_CHECKOUT"/ "$R2FU_WORKDIR"/
   else
-    git clone --depth 1 --branch "$R2FU_REF" "$R2FU_REPO" "$R2FU_CLONE_TMP"
-    cd "$R2FU_CLONE_TMP"
+    rm -rf "$R2FU_CLONE_TMP"
+    if [[ "$R2FU_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+      git clone "$R2FU_REPO" "$R2FU_CLONE_TMP"
+      cd "$R2FU_CLONE_TMP"
+      git checkout "$R2FU_REF"
+    else
+      git clone --depth 1 --branch "$R2FU_REF" "$R2FU_REPO" "$R2FU_CLONE_TMP"
+      cd "$R2FU_CLONE_TMP"
+    fi
+
+    mkdir -p "$R2FU_WORKDIR"
+    find "$R2FU_WORKDIR" -mindepth 1 -maxdepth 1 ! -name install -exec rm -rf {} +
+
+    shopt -s dotglob
+    mv "$R2FU_CLONE_TMP"/* "$R2FU_WORKDIR"
+    shopt -u dotglob
+    rm -rf "$R2FU_CLONE_TMP"
   fi
-
-  mkdir -p "$R2FU_WORKDIR"
-  find "$R2FU_WORKDIR" -mindepth 1 -maxdepth 1 ! -name install -exec rm -rf {} +
-
-  shopt -s dotglob
-  mv "$R2FU_CLONE_TMP"/* "$R2FU_WORKDIR"
-  shopt -u dotglob
-  rm -rf "$R2FU_CLONE_TMP"
 
   cd "$R2FU_WORKDIR"
   git config --global --add safe.directory "$R2FU_WORKDIR"
@@ -71,6 +90,11 @@ r2fu_build() {
 
 r2fu_test() {
   cd "$R2FU_WORKDIR/src/ros2cs"
+  if [ ! -x ./test.sh ]; then
+    echo "ros2cs test.sh is missing or not executable in the pinned ros2cs checkout." >&2
+    echo "Update ros2cs.repos or the R2FU Docker test contract before running r2fu-ci." >&2
+    exit 1
+  fi
   ./test.sh
 }
 

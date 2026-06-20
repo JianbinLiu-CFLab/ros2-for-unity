@@ -20,13 +20,14 @@ namespace ROS2
 {
 
 /// <summary>
-/// An example class provided for performance testing of ROS2 communication
+/// A throughput generator for ROS2 communication experiments. It does not assert
+/// subscriber delivery or message integrity and should not be treated as a correctness smoke test.
 /// </summary>
 public class ROS2PerformanceTest : MonoBehaviour
 {
     public int messageSize = 10000;
     public int rate = 10;
-    private int interval_ms = 100;
+    private volatile int interval_ms = 100;
     private ROS2UnityComponent ros2Unity;
     private ROS2Node ros2Node;
     private IPublisher<sensor_msgs.msg.PointCloud2> perf_pub;

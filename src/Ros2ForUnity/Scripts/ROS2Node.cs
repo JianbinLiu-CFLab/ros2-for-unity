@@ -129,14 +129,11 @@ public class ROS2Node : IDisposable
         }
     }
 
-    private void ThrowIfUninitialized(string callContext)
+    private void ThrowIfUninitializedLocked(string callContext)
     {
-        lock (mutex)
+        if (disposed || node == null || !Ros2cs.Ok())
         {
-            if (disposed || node == null || !Ros2cs.Ok())
-            {
-                throw new InvalidOperationException("Ros2 For Unity is not initialized, can't " + callContext);
-            }
+            throw new InvalidOperationException("Ros2 For Unity is not initialized, can't " + callContext);
         }
     }
 
@@ -144,7 +141,7 @@ public class ROS2Node : IDisposable
     {
         lock (mutex)
         {
-            ThrowIfUninitialized(callContext);
+            ThrowIfUninitializedLocked(callContext);
             return action(node);
         }
     }
@@ -171,7 +168,15 @@ public class ROS2Node : IDisposable
     /// <param name="qos">QoS for publishing. If no QoS is selected, it will default to reliable, keep 10 last</param>
     public Publisher<T> CreatePublisher<T>(string topicName, QualityOfServiceProfile qos = null) where T : Message, new()
     {
-        return WithLiveNode("create publisher", liveNode => liveNode.CreatePublisher<T>(topicName, qos));
+        if (qos != null)
+        {
+            return WithLiveNode("create publisher", liveNode => liveNode.CreatePublisher<T>(topicName, qos));
+        }
+
+        using (QualityOfServiceProfile defaultQos = new QualityOfServiceProfile(QosPresetProfile.DEFAULT))
+        {
+            return WithLiveNode("create publisher", liveNode => liveNode.CreatePublisher<T>(topicName, defaultQos));
+        }
     }
 
     /// <summary>

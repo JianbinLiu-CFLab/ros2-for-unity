@@ -46,9 +46,22 @@ public class ROS2ListenerExample : MonoBehaviour
         if (ros2Node == null && ros2Unity.Ok())
         {
             ros2Node = ros2Unity.CreateNode("ROS2UnityListenerNode");
+        }
+        if (ros2Node != null && chatter_sub == null && ros2Unity.Ok())
+        {
             chatter_sub = ros2Node.CreateSubscription<std_msgs.msg.String>(
               "chatter", msg => Debug.Log("Unity listener heard: [" + msg.Data + "]"));
         }
+    }
+
+    void OnDestroy()
+    {
+        if (ros2Unity != null && ros2Node != null)
+        {
+            ros2Unity.RemoveNode(ros2Node);
+        }
+        chatter_sub = null;
+        ros2Node = null;
     }
 }
 

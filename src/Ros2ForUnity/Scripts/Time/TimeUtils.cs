@@ -23,6 +23,13 @@ namespace ROS2
 /// </summary>
 internal static class TimeUtils
 {
+  /// <summary>
+  /// Converts total seconds into ROS sec/nanosec fields.
+  /// </summary>
+  /// <remarks>
+  /// ROS 2 builtin_interfaces/Time stores seconds in a signed 32-bit field. This helper deliberately
+  /// throws when the input falls outside that range, including timestamps beyond the 2038 boundary.
+  /// </remarks>
   public static void TimeFromTotalSeconds(in double secondsIn, out int seconds, out uint nanoseconds)
   {
     if (Double.IsNaN(secondsIn) || Double.IsInfinity(secondsIn))

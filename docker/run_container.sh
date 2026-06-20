@@ -15,6 +15,7 @@ IMAGE_NAME=${R2FU_DOCKER_IMAGE:-ros2-for-unity}
 CONTAINER_NAME=${R2FU_DOCKER_CONTAINER_NAME:-ros2-for-unity}
 R2FU_REPO=${R2FU_REPO:-https://github.com/JianbinLiu-CFLab/ros2-for-unity.git}
 R2FU_REF=${R2FU_REF:-main}
+R2FU_LOCAL_CHECKOUT=${R2FU_LOCAL_CHECKOUT:-}
 
 mkdir -p "$SCRIPTPATH/../install"
 mkdir -p "$SCRIPTPATH/cache"
@@ -43,5 +44,17 @@ docker_args=(
   -v "$SCRIPTPATH/custom_messages:/workdir/custom_messages"
   -v "$SCRIPTPATH/cache:/workdir/cache:rw"
 )
+
+if [ -n "$R2FU_LOCAL_CHECKOUT" ]; then
+  if [ ! -d "$R2FU_LOCAL_CHECKOUT" ]; then
+    echo "R2FU_LOCAL_CHECKOUT does not exist: $R2FU_LOCAL_CHECKOUT" >&2
+    exit 1
+  fi
+  R2FU_LOCAL_CHECKOUT_PATH=$(readlink -f "$R2FU_LOCAL_CHECKOUT")
+  docker_args+=(
+    -e "R2FU_LOCAL_CHECKOUT=/workdir/local-checkout"
+    -v "$R2FU_LOCAL_CHECKOUT_PATH:/workdir/local-checkout:ro"
+  )
+fi
 
 docker run "${docker_args[@]}" "$IMAGE_NAME" "$@"
