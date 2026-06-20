@@ -93,9 +93,10 @@ It is necessary to complete the `ros2cs` Windows prerequisites for the same bran
     # overlay mode
     ./build.ps1
     ```
-  * You can build with `-clean_install` to make sure your installation directory is cleaned before deploying.
+  * You can build with `-clean_install` to remove the R2FU install tree plus the configured ros2cs build, log, and install roots before deploying.
   * Build scripts print a phase timing summary covering metadata generation, ros2cs build, Unity asset staging, plugin deploy, and metadata copy.
   * Use `-quiet` to reduce live colcon terminal output while keeping logs under the configured colcon log base. Use `-console_direct` to preserve the chatty `console_direct+` output.
+  * `build.ps1` warns when the local `src\ros2cs` checkout does not match `ros2cs.repos`; pass `-strict_pin` to make the mismatch fail the build.
   * Windows standalone deployment validates required managed and native files after copy, including `ros2cs_common.dll`, `ros2cs_core.dll`, `rcl.dll`, and `rmw_implementation.dll`.
 * Unity Asset is ready to import into your Unity project. You can find it in `install/asset/` directory.
 * (optionally) To create `.unitypackage` in `install/unity_package`
@@ -141,7 +142,7 @@ R2FU_UNITY_LOAD_SMOKE_PASS
 
 - If `pull_repositories.ps1` exits non-zero, fix the reported network, authentication, or existing `src\ros2cs` checkout problem before building. The script does not update an existing checkout in place; remove or move `src\ros2cs` when you intentionally want to re-import the pinned repositories.
 
-- If `build.ps1` exits non-zero, do not package the existing `install\asset` output as a fresh artifact. Re-run the failed command after fixing the reported error, or use `-clean_install` to remove stale staged asset files before rebuilding.
+- If `build.ps1` exits non-zero, do not package the existing `install\asset` output as a fresh artifact. Re-run the failed command after fixing the reported error, or use `-clean_install` to remove stale staged asset files and ros2cs build/install outputs before rebuilding.
 
 - If packaging creates no `.unitypackage` or zip artifact, treat the artifact as missing. Re-run package creation after confirming `install\asset\Ros2ForUnity` exists and came from a successful build.
 

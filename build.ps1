@@ -9,11 +9,13 @@
 .PARAMETER standalone
     Add ros2 binaries. Currently standalone flag is fixed to true, so there is no way to build without standalone libs. Parameter kept for future releases
 .PARAMETER clean_install
-    Makes a clean installation. Removes install dir before deploying
+    Makes a clean installation. Removes R2FU install plus ros2cs build/install/log roots before deploying.
 .PARAMETER quiet
     Reduce live colcon console output. Full logs are still written under the configured colcon log base.
 .PARAMETER console_direct
     Preserve the chatty console_direct+ colcon output. This is the default for compatibility.
+.PARAMETER strict_pin
+    Fail when the local src\ros2cs checkout does not match ros2cs.repos. By default this is a warning.
 
 Modifications Copyright (c) 2026 Jianbin Liu.
 
@@ -28,7 +30,8 @@ Param (
     [Parameter(Mandatory=$false)][switch]$standalone=$false,
     [Parameter(Mandatory=$false)][switch]$clean_install=$false,
     [Parameter(Mandatory=$false)][switch]$quiet=$false,
-    [Parameter(Mandatory=$false)][switch]$console_direct=$false
+    [Parameter(Mandatory=$false)][switch]$console_direct=$false,
+    [Parameter(Mandatory=$false)][switch]$strict_pin=$false
 )
 
 $ErrorActionPreference = 'Stop'
@@ -131,19 +134,119 @@ function Resolve-RequiredCommand {
     }
 }
 
+function Remove-DirectoryIfPresent {
+    param(
+        [Parameter(Mandatory=$true)][string]$Path,
+        [Parameter(Mandatory=$true)][string]$Description
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        throw "Refusing to remove empty $Description path."
+    }
+
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $root = [System.IO.Path]::GetPathRoot($fullPath)
+    if ([string]::IsNullOrEmpty($root) -or ($fullPath.TrimEnd('\') -eq $root.TrimEnd('\'))) {
+        throw "Refusing to remove unsafe $Description path: $fullPath"
+    }
+
+    if (Test-Path -LiteralPath $fullPath) {
+        Write-Host "Removing ${Description}: $fullPath" -ForegroundColor White
+        Remove-Item -LiteralPath $fullPath -Force -Recurse -ErrorAction Stop
+    }
+}
+
+function Get-PinnedRos2csCommit {
+    param([Parameter(Mandatory=$true)][string]$ReposPath)
+
+    $reposText = Get-Content -LiteralPath $ReposPath -Raw
+    if ($reposText -match '(?ms)src/ros2cs/:\s*.*?^\s+version:\s*([0-9a-fA-F]{40})\s*$') {
+        return $matches[1].ToLowerInvariant()
+    }
+    throw "Could not find a pinned 40-character ros2cs commit in $ReposPath"
+}
+
+function Assert-Ros2csPin {
+    param(
+        [Parameter(Mandatory=$true)][string]$Ros2csPath,
+        [Parameter(Mandatory=$true)][string]$ReposPath,
+        [Parameter(Mandatory=$true)][bool]$Strict
+    )
+
+    $expectedCommit = Get-PinnedRos2csCommit -ReposPath $ReposPath
+    $actualCommit = $null
+    try {
+        $actualCommit = (& git -C $Ros2csPath rev-parse HEAD 2>$null).Trim().ToLowerInvariant()
+    } catch {
+        # Handled below with a consistent warning/error message.
+    }
+
+    if ([string]::IsNullOrEmpty($actualCommit)) {
+        $message = "Could not read src\ros2cs git HEAD; expected ros2cs.repos pin $expectedCommit."
+        if ($Strict) { throw $message }
+        Write-Warning $message
+        return
+    }
+
+    if ($actualCommit -ne $expectedCommit) {
+        $message = "src\ros2cs HEAD $actualCommit does not match ros2cs.repos pin $expectedCommit."
+        if ($Strict) { throw $message }
+        Write-Warning $message
+    }
+}
+
+function Write-LatestColconLogTail {
+    param([Parameter(Mandatory=$true)][string]$LogBase)
+
+    if (-not (Test-Path -LiteralPath $LogBase)) {
+        return
+    }
+
+    $latestLog = Get-ChildItem -LiteralPath $LogBase -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -in @(".log", ".txt") } |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if ($null -eq $latestLog) {
+        return
+    }
+
+    Write-Warning "Latest colcon log tail: $($latestLog.FullName)"
+    Get-Content -LiteralPath $latestLog.FullName -Tail 80 | ForEach-Object {
+        Write-Host $_ -ForegroundColor DarkGray
+    }
+}
+
 try {
     if(-Not (Test-Path -LiteralPath "$scriptPath\src\ros2cs")) {
         throw "Pull repositories with 'pull_repositories.ps1' first."
+    }
+
+    if ([string]::IsNullOrEmpty($Env:ROS_DISTRO)) {
+        throw "Can't detect ROS2 version. Source your ROS 2 distro first."
     }
 
     Write-Host "Building Ros2ForUnity asset..." -ForegroundColor Green
     $tests_switch = if ($with_tests) { 1 } else { 0 }
     $standalone_switch = if ($standalone) { 1 } else { 0 }
 
+    # Resolve the junction target so colcon builds the canonical ros2cs workspace, not the R2FU src wrapper.
+    $ros2csItem = Get-Item "$scriptPath\src\ros2cs" -Force
+    $ros2csPath = if ($ros2csItem.Target -and $ros2csItem.Target.Count -gt 0) { $ros2csItem.Target[0] } else { $ros2csItem.FullName }
+    $ros2csSourcePath = Join-Path -Path $ros2csPath -ChildPath "src"
+    $ros2csInstallPath = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_INSTALL_BASE)) {
+        Join-Path -Path $ros2csPath -ChildPath "install"
+    } else { $Env:R2FU_ROS2CS_INSTALL_BASE }
+    # Keep generated ROS/MSVC object paths short while allowing CI or local scripts to override the roots.
+    $ros2csBuildBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_BUILD_BASE)) { Get-DefaultWorkPath "r2fu_b" } else { $Env:R2FU_ROS2CS_BUILD_BASE }
+    $ros2csLogBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_LOG_BASE)) { Get-DefaultWorkPath "r2fu_l" } else { $Env:R2FU_ROS2CS_LOG_BASE }
+    Assert-Ros2csPin -Ros2csPath $ros2csPath -ReposPath (Join-Path -Path $scriptPath -ChildPath "ros2cs.repos") -Strict ([bool]$strict_pin)
+
     if($clean_install) {
         Invoke-Timed "clean install" {
-            Write-Host "Cleaning install directory..." -ForegroundColor White
-            Remove-Item -Path "$scriptPath\install" -Force -Recurse -ErrorAction Ignore
+            Remove-DirectoryIfPresent -Path (Join-Path -Path $scriptPath -ChildPath "install") -Description "R2FU install directory"
+            Remove-DirectoryIfPresent -Path $ros2csBuildBase -Description "ros2cs build base"
+            Remove-DirectoryIfPresent -Path $ros2csLogBase -Description "ros2cs log base"
+            Remove-DirectoryIfPresent -Path $ros2csInstallPath -Description "ros2cs install base"
         }
     }
 
@@ -158,16 +261,6 @@ try {
         }
     }
 
-    # Resolve the junction target so colcon builds the canonical ros2cs workspace, not the R2FU src wrapper.
-    $ros2csItem = Get-Item "$scriptPath\src\ros2cs" -Force
-    $ros2csPath = if ($ros2csItem.Target -and $ros2csItem.Target.Count -gt 0) { $ros2csItem.Target[0] } else { $ros2csItem.FullName }
-    $ros2csSourcePath = Join-Path -Path $ros2csPath -ChildPath "src"
-    $ros2csInstallPath = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_INSTALL_BASE)) {
-        Join-Path -Path $ros2csPath -ChildPath "install"
-    } else { $Env:R2FU_ROS2CS_INSTALL_BASE }
-    # Keep generated ROS/MSVC object paths short while allowing CI or local scripts to override the roots.
-    $ros2csBuildBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_BUILD_BASE)) { Get-DefaultWorkPath "r2fu_b" } else { $Env:R2FU_ROS2CS_BUILD_BASE }
-    $ros2csLogBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_LOG_BASE)) { Get-DefaultWorkPath "r2fu_l" } else { $Env:R2FU_ROS2CS_LOG_BASE }
     $pythonExecutable = if ([string]::IsNullOrEmpty($Env:COLCON_PYTHON_EXECUTABLE)) {
         Resolve-RequiredCommand "python" "Run this script from a sourced ROS 2 environment, or set COLCON_PYTHON_EXECUTABLE."
     } else { $Env:COLCON_PYTHON_EXECUTABLE }
@@ -202,6 +295,7 @@ try {
     Invoke-Timed "ros2cs colcon build" {
         & $colconExecutable @colconArgs
         if($LASTEXITCODE -ne 0) {
+            Write-LatestColconLogTail -LogBase $ros2csLogBase
             throw "Ros2cs build failed with exit code $LASTEXITCODE"
         }
     }

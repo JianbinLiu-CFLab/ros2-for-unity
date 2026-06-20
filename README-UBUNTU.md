@@ -43,7 +43,8 @@ Start with installation of dependencies. Make sure to complete each step of this
     # overlay mode
     ./build.sh
     ```
-    * You can add `--clean-install` flag to make sure your installation directory is cleaned before deploying.
+    * You can add `--clean-install` to remove the R2FU install tree plus the ros2cs build, log, and install roots before deploying.
+    * `build.sh` warns when the local `src/ros2cs` checkout does not match `ros2cs.repos`; pass `--strict-pin` to make the mismatch fail the build.
 * Unity Asset is ready to import into your Unity project. You can find it in `install/asset/` directory.
 * (optionally) To create `.unitypackage` in `install/unity_package`
     ```bash
@@ -64,7 +65,7 @@ These Ubuntu instructions are retained as legacy guidance for the current Jazzy 
 
 * If `pull_repositories.sh` exits non-zero, fix the reported network, authentication, or existing `src/ros2cs` checkout problem before building. The script does not update an existing checkout in place; remove or move `src/ros2cs` when you intentionally want to re-import the pinned repositories.
 
-* If `build.sh` exits non-zero, do not package or copy the existing `install/asset` output as a fresh artifact. Re-run the failed command after fixing the reported error, or use `--clean-install` to remove stale staged asset files before rebuilding.
+* If `build.sh` exits non-zero, do not package or copy the existing `install/asset` output as a fresh artifact. Re-run the failed command after fixing the reported error, or use `--clean-install` to remove stale staged asset files and ros2cs build/install outputs before rebuilding.
 
 * If package creation produces no `.unitypackage`, treat the artifact as missing and re-run package creation only after confirming `install/asset/Ros2ForUnity` came from a successful build.
 
