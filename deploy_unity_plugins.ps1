@@ -1,6 +1,6 @@
-# Modifications Copyright (c) 2026 Jianbin Liu.
+# Copyright (c) 2026 Jianbin Liu.
 #
-# Modifications by Jianbin Liu:
+# Purpose:
 # - Added fail-fast plugin deployment with an explicit install root.
 # - Made optional standalone-library copies non-fatal when the source directory is absent.
 # - Replaced PowerShell -Exclude directory filtering with explicit file-name predicates.
@@ -76,6 +76,7 @@ function Copy-FilesWithRobocopy {
         $robocopyArgs += "/XF"
         $robocopyArgs += $Excludes
     }
+    # Copy retries are deliberately short: CI/local artifact builds should fail fast on persistent locks.
     $robocopyArgs += @("/R:1", "/W:0", "/NP", "/NFL", "/NDL", "/NJH", "/NJS")
 
     & robocopy @robocopyArgs
@@ -125,6 +126,7 @@ function Copy-MetadataFile {
 }
 
 function Copy-FilePreservingRelativePath {
+    # Copy selected ament-index files without materializing the entire ROS 2 share tree.
     param(
         [Parameter(Mandatory=$true)][string]$SourceRoot,
         [Parameter(Mandatory=$true)][string]$DestinationRoot,
@@ -143,11 +145,13 @@ function Copy-FilePreservingRelativePath {
 }
 
 function Copy-RosRuntimeShareClosure {
+    # Deploy the minimum ament-index closure required for ROS 2 runtime discovery inside Unity players.
     param(
         [Parameter(Mandatory=$true)][string]$SourceShare,
         [Parameter(Mandatory=$true)][string]$DestinationShare
     )
 
+    # These package entries cover RMW selection, typesupport lookup, and dynamic type backend discovery.
     $runtimePackages = @(
         "ament_index_cpp",
         "fastcdr",
@@ -174,6 +178,7 @@ function Copy-RosRuntimeShareClosure {
         "rosidl_typesupport_introspection_c",
         "rosidl_typesupport_introspection_cpp"
     )
+    # Resource indexes are copied package-by-package to avoid pulling large unrelated share directories.
     $resourceIndexes = @(
         "packages",
         "package_run_dependencies",
@@ -215,6 +220,7 @@ function Assert-RequiredFileGlob {
 }
 
 function Get-RosRuntimeSearchDirs {
+    # Prefer explicit ROS2_ROOT/bin, then fall back to PATH entries from the sourced ROS environment.
     $candidateDirs = New-Object System.Collections.Generic.List[string]
     if (-not [string]::IsNullOrWhiteSpace($env:ROS2_ROOT)) {
         $candidateDirs.Add((Join-Path -Path $env:ROS2_ROOT -ChildPath "bin")) | Out-Null
@@ -229,6 +235,7 @@ function Get-RosRuntimeSearchDirs {
 }
 
 function Find-RosRuntimeDlls {
+    # Locate runtime DLLs that live in the active ROS root rather than the ros2cs install prefix.
     param([Parameter(Mandatory=$true)][string]$Pattern)
 
     $matches = New-Object System.Collections.Generic.List[string]
@@ -241,6 +248,7 @@ function Find-RosRuntimeDlls {
 }
 
 function Find-RosRootCandidates {
+    # Infer ROS roots from ROS2_ROOT and PATH/bin entries that contain an ament index.
     $roots = New-Object System.Collections.Generic.List[string]
     if (-not [string]::IsNullOrWhiteSpace($env:ROS2_ROOT)) {
         $roots.Add($env:ROS2_ROOT) | Out-Null
@@ -299,6 +307,7 @@ try {
                 -PluginDir $pluginDir `
                 -NativePluginDir $windowsPluginDir `
                 -StreamingAssetsShareDestination $streamingAssetsShareDestination
+            # Remove the old nested asset-local StreamingAssets shape; current builds use install/asset/StreamingAssets.
             if (Test-Path -LiteralPath $legacyNestedStreamingAssets) {
                 Remove-Item -LiteralPath $legacyNestedStreamingAssets -Recurse -Force
             }
@@ -352,6 +361,7 @@ try {
             }
         }
 
+        # These DLLs are resolved from the active ROS root/PATH; fastdds uses a wildcard to track distro versioned names.
         $rosRootRuntimeDllPatterns = @(
             "class_loader.dll",
             "fastdds*.dll",
@@ -377,6 +387,7 @@ try {
         }
 
         Invoke-Timed "ros2cs metadata deploy" {
+            # Keep metadata next to native Windows DLLs and at Plugins root for platform-agnostic runtime readers.
             Copy-MetadataFile -Destination $pluginDir -Description "Plugins root"
             Copy-MetadataFile -Destination $windowsPluginDir -Description "Windows/x86_64 plugin directory"
         }

@@ -1,7 +1,7 @@
 #!/bin/bash
-# Modifications Copyright (c) 2026 Jianbin Liu.
+# Copyright (c) 2026 Jianbin Liu.
 #
-# Modifications by Jianbin Liu:
+# Purpose:
 # - Updated supported ROS distribution messaging for Humble/Jazzy maintenance.
 # - Made repository imports run from the repository root instead of the caller's current directory.
 
@@ -28,6 +28,7 @@ fi
 echo ""
 echo "========================================="
 echo "Pulling custom repositories:"
+# VCS repos files declare each repository with an indented "type:" key; comments-only files are skipped.
 if grep -qE '^[[:space:]]+type:' "$custom_repos"; then
     if ! vcs import --shallow --input "$custom_repos"; then
         echo "vcs import custom messages failed." >&2

@@ -1,6 +1,12 @@
 # Copyright 2019-2022 Robotec.ai.
 # Modifications Copyright (c) 2026 Jianbin Liu.
 #
+# Modifications by Jianbin Liu:
+# - Added atomic metadata XML writes to avoid partial files during packaging.
+# - Anchored repository and asset paths from the script location.
+# - Added git branch and runtime plugin inventory metadata for release evidence.
+# - Kept ElementTree indentation on Python 3.9+ for ROS 2 Jazzy/Lyrical tooling.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -21,6 +27,7 @@ import os
 import io
 
 SCRIPT_DIR = pathlib.Path(__file__).parent
+# metadata_generator.py lives at <repo>/src/scripts; parents[1] is the repository root.
 R2FU_ROOT = SCRIPT_DIR.parents[1]
 R2FU_ASSET = SCRIPT_DIR.parent.joinpath("Ros2ForUnity")
 ROS2CS_PATH = SCRIPT_DIR.parent.joinpath("ros2cs")
@@ -37,6 +44,7 @@ def get_git_abbrev(working_directory) -> str:
     return run_git(['rev-parse', '--abbrev-ref', 'HEAD'], working_directory)
 
 def run_git(args, working_directory) -> str:
+    """Run git in a specific checkout and surface stdout/stderr in one diagnostic."""
     try:
         return subprocess.check_output(
             ['git'] + args,
@@ -88,6 +96,7 @@ def add_plugin_inventory(root: ET.Element, plugins_dir: pathlib.Path | None) -> 
         ET.SubElement(plugins, "file").text = runtime_file
 
 def main() -> None:
+    """Generate ros2-for-unity and ros2cs metadata XML files for the Unity asset."""
     parser = argparse.ArgumentParser(description='Generate metadata file for ros2-for-unity.')
     parser.add_argument('--standalone', action='store_true', help='is a standalone build')
     parser.add_argument('--ros2cs-path', default=str(ROS2CS_PATH), help='path to the ros2cs checkout')
@@ -136,6 +145,7 @@ def main() -> None:
     write_metadata_xml(ros2_cs, metadata_r2cs_file)
 
 def write_metadata_xml(root: ET.Element, destination: pathlib.Path) -> None:
+    """Write formatted XML only when content changed, using atomic replacement."""
     # ET.indent requires Python 3.9+; ROS 2 Jazzy's supported Python satisfies this.
     ET.indent(root, space="   ")
     buffer = io.BytesIO()

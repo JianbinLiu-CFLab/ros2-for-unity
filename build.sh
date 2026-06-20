@@ -1,7 +1,7 @@
 #!/bin/bash
-# Modifications Copyright (c) 2026 Jianbin Liu.
+# Copyright (c) 2026 Jianbin Liu.
 #
-# Modifications by Jianbin Liu:
+# Purpose:
 # - Added strict/fail-fast behavior for Linux builds.
 # - Kept Ros2ForUnity asset deployment explicit after ros2cs build completion.
 # - Added phase timing for R2FU wrapper build and deployment steps.
@@ -44,6 +44,7 @@ run_timed() {
   local start_ns
   local status
   start_ns=$(date +%s%N)
+  # Temporarily relax errexit so the wrapped command's status can be recorded with timing.
   set +e
   "$@"
   status=$?
@@ -52,6 +53,7 @@ run_timed() {
   return "$status"
 }
 
+# Always print timing, including failing builds, so long-running phases are visible in CI logs.
 trap print_timing_summary EXIT
 
 display_usage() {
@@ -190,6 +192,7 @@ if [ -z "${ROS_DISTRO:-}" ]; then
 fi
 
 ROS2CS_PATH=$(readlink -f "$SCRIPTPATH/src/ros2cs")
+# R2FU_ROS2CS_* overrides let outer validation scripts share or isolate ros2cs build/install roots.
 ROS2CS_BUILD_BASE="${R2FU_ROS2CS_BUILD_BASE:-$ROS2CS_PATH/build}"
 ROS2CS_INSTALL_BASE="${R2FU_ROS2CS_INSTALL_BASE:-$ROS2CS_PATH/install}"
 PINNED_ROS2CS_COMMIT=$(get_pinned_ros2cs_commit)
@@ -227,6 +230,7 @@ if run_timed "ros2cs build" "$ROS2CS_PATH/build.sh" "${ROS2CS_OPTIONS[@]}"; then
     for metadata_target in \
       "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/Linux/x86_64/metadata_ros2cs.xml" \
       "$SCRIPTPATH/install/asset/Ros2ForUnity/Plugins/metadata_ros2cs.xml"; do
+      # Keep metadata beside platform native libraries and at Plugins root for platform-agnostic readers.
       cp "$SCRIPTPATH/src/Ros2ForUnity/metadata_ros2cs.xml" "$metadata_target"
     done
     record_timing "metadata copy" "$(elapsed_ms "$metadata_start_ns")"

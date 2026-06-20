@@ -1,9 +1,9 @@
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-# Modifications Copyright (c) 2026 Jianbin Liu.
+# Copyright (c) 2026 Jianbin Liu.
 #
-# Modifications by Jianbin Liu:
+# Purpose:
 # - Updated supported ROS distribution messaging for Humble/Jazzy maintenance.
 # - Made repository imports run from the repository root instead of the caller's current directory.
 
@@ -20,6 +20,7 @@ $custom_repos = Join-Path -Path $scriptPath -ChildPath "ros2_for_unity_custom_me
 
 function Test-HasVcsRepositoryEntries {
     param([Parameter(Mandatory=$true)][string]$Path)
+    # VCS repos files declare each repository with an indented "type:" key; comments-only files are skipped.
     return [bool](Select-String -Path $Path -Pattern '^\s+type:' -Quiet)
 }
 
@@ -47,5 +48,6 @@ try {
     & "$scriptPath/src/ros2cs/get_repos.ps1"
     if ($LASTEXITCODE -ne 0) { throw "ros2cs get_repos.ps1 failed with exit code $LASTEXITCODE" }
 } finally {
+    # Restore the caller's original directory even when vcs import or nested ros2cs setup fails.
     Pop-Location
 }
