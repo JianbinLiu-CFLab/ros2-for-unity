@@ -33,6 +33,11 @@ public class ROS2ScalableTimeSource : ITimeSource, IDisposable
   private readonly object mutex = new object();
   private readonly object clockMutex = new object();
   private int mainThreadId;
+
+  // State machine:
+  // 1. Capture the first observed Unity timeScale (Unity defaults to 1.0, but projects may change it early).
+  // 2. While timeScale is unchanged, forward ROS/system time directly.
+  // 3. After the first timeScale change, use Unity scaled time plus a one-time ROS offset forever.
   private double lastReadingSecs;
   private ROS2.Clock clock;
   private double rosUnityTimeOffset = 0;
@@ -48,6 +53,10 @@ public class ROS2ScalableTimeSource : ITimeSource, IDisposable
     UpdateUnityTimeSnapshot();
   }
 
+  /// <summary>
+  /// Acquires ROS-aligned time, switching to Unity-scaled time only after Time.timeScale changes.
+  /// </summary>
+  /// <returns>False when ROS 2 is not initialized; otherwise true.</returns>
   public bool GetTime(out int seconds, out uint nanoseconds)
   {
     if (!ROS2.Ros2cs.Ok())

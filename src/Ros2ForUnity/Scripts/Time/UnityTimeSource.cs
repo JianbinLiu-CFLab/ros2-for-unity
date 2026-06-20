@@ -42,7 +42,13 @@ public class UnityTimeSource : ITimeSource
     lastReadingSecs = Time.timeAsDouble;
   }
 
-  /// <inheritdoc />
+  /// <summary>
+  /// Acquires Unity play time as ROS sec/nanosec fields.
+  /// </summary>
+  /// <returns>
+  /// Always true. Background callers may receive the last main-thread sample because Unity time cannot
+  /// be sampled off the main thread.
+  /// </returns>
   public bool GetTime(out int seconds, out uint nanoseconds)
   {
     double reading;

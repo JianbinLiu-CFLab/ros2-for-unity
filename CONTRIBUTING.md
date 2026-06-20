@@ -19,3 +19,10 @@ be under the Apache 2 License, as dictated by that
 >    Notwithstanding the above, nothing herein shall supersede or modify
 >    the terms of any separate license agreement you may have executed
 >    with Licensor regarding such Contributions.
+
+## Unity metadata
+
+Unity `.meta` files are part of the asset contract. Keep their GUIDs stable when
+renaming or moving files so downstream Unity projects do not lose serialized
+references. When replacing a file intentionally, note the reason in the commit
+message or nearby documentation.
