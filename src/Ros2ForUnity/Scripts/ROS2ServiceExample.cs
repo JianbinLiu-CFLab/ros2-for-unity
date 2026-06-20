@@ -16,10 +16,12 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using ROS2;
 
 using addTwoIntsReq = example_interfaces.srv.AddTwoInts_Request;
 using addTwoIntsResp = example_interfaces.srv.AddTwoInts_Response;
+
+namespace ROS2
+{
 
 /// <summary>
 /// An example class provided for testing of basic ROS2 service
@@ -51,6 +53,9 @@ public class ROS2ServiceExample : MonoBehaviour
             if (ros2Node == null)
             {
                 ros2Node = ros2Unity.CreateNode("ROS2UnityService");
+            }
+            if (ros2Node != null && addTwoIntsService == null)
+            {
                 addTwoIntsService = ros2Node.CreateService<addTwoIntsReq, addTwoIntsResp>(
                     "add_two_ints", addTwoInts);
             }
@@ -64,4 +69,16 @@ public class ROS2ServiceExample : MonoBehaviour
         response.Sum = msg.A + msg.B;
         return response;
     }
+
+    void OnDestroy()
+    {
+        if (ros2Unity != null && ros2Node != null)
+        {
+            ros2Unity.RemoveNode(ros2Node);
+        }
+        addTwoIntsService = null;
+        ros2Node = null;
+    }
 }
+
+}  // namespace ROS2
