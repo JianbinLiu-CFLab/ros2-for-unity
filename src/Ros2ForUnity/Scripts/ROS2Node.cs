@@ -1,6 +1,11 @@
 // Copyright 2019-2021 Robotec.ai.
 // Modifications Copyright (c) 2026 Jianbin Liu.
 //
+// Fork modifications:
+// - Added disposal-safe node facade helpers and timestamp update support for sensor utilities.
+// - Centralized node liveness checks through WithLiveNode() before delegating to ros2cs.
+// - Preserved compatibility overloads for existing generic remove-call sites.
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -26,12 +31,24 @@ namespace ROS2
 /// </summary>
 public class ROS2Node : IDisposable
 {
+    private const string DefaultNodeName = "unity_ros2_node"; // Fallback only; callers creating multiple nodes should pass unique names.
+
     internal INode node;
+    /// <summary>
+    /// ROS clock owned by this node and disposed together with it.
+    /// </summary>
     public ROS2Clock clock { get; private set; }
+
+    /// <summary>
+    /// ROS node name used when the underlying ros2cs node was created.
+    /// </summary>
     public string name { get; }
     private readonly object mutex = new object();
     private volatile bool disposed;
 
+    /// <summary>
+    /// Returns whether this facade has disposed its underlying ros2cs node.
+    /// </summary>
     internal bool IsDisposed
     {
         get
@@ -44,13 +61,16 @@ public class ROS2Node : IDisposable
     }
 
     // Use ROS2UnityComponent to create a node
-    internal ROS2Node(string unityROS2NodeName = "unity_ros2_node")
+    internal ROS2Node(string unityROS2NodeName = DefaultNodeName)
     {
         name = unityROS2NodeName;
         node = Ros2cs.CreateNode(name);
         clock = new ROS2Clock();
     }
 
+    /// <summary>
+    /// Releases the underlying ros2cs node and this node's owned ROS clock.
+    /// </summary>
     public void Dispose()
     {
         INode nodeToDispose = null;
@@ -96,6 +116,10 @@ public class ROS2Node : IDisposable
         }
     }
 
+    /// <summary>
+    /// Attempts to stamp a header message with current ROS time.
+    /// Returns false without throwing if the node or clock has already been disposed.
+    /// </summary>
     internal bool TryUpdateROSTimestamp(ref MessageWithHeader message)
     {
         if (disposed)
@@ -137,6 +161,8 @@ public class ROS2Node : IDisposable
         }
     }
 
+    // Acquires mutex, asserts node is live, then executes action under the lock.
+    // All factory/removal methods should go through this helper to share the liveness contract.
     private TResult WithLiveNode<TResult>(string callContext, Func<INode, TResult> action)
     {
         lock (mutex)
@@ -175,6 +201,7 @@ public class ROS2Node : IDisposable
 
         using (QualityOfServiceProfile defaultQos = new QualityOfServiceProfile(QosPresetProfile.DEFAULT))
         {
+            // ros2cs CreatePublisher expects an explicit QoS profile; the default profile is copied during creation.
             return WithLiveNode("create publisher", liveNode => liveNode.CreatePublisher<T>(topicName, defaultQos));
         }
     }
@@ -195,6 +222,7 @@ public class ROS2Node : IDisposable
 
         using (QualityOfServiceProfile defaultQos = new QualityOfServiceProfile(QosPresetProfile.DEFAULT))
         {
+            // ros2cs CreateSubscription expects an explicit QoS profile; the default profile is copied during creation.
             return WithLiveNode("create subscription", liveNode => liveNode.CreateSubscription<T>(topicName, callback, defaultQos));
         }
     }
@@ -210,6 +238,9 @@ public class ROS2Node : IDisposable
         return WithLiveNode("remove subscription", liveNode => liveNode.RemoveSubscription(subscription));
     }
 
+    /// <summary>
+    /// Backward-compatibility overload; <typeparamref name="T"/> is unused and delegates to the non-generic overload.
+    /// </summary>
     public bool RemoveSubscription<T>(ISubscriptionBase subscription)
     {
         return RemoveSubscription(subscription);
@@ -225,6 +256,9 @@ public class ROS2Node : IDisposable
         return WithLiveNode("remove publisher", liveNode => liveNode.RemovePublisher(publisher));
     }
 
+    /// <summary>
+    /// Backward-compatibility overload; <typeparamref name="T"/> is unused and delegates to the non-generic overload.
+    /// </summary>
     public bool RemovePublisher<T>(IPublisherBase publisher)
     {
         return RemovePublisher(publisher);

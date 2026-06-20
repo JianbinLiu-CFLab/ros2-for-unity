@@ -1,6 +1,11 @@
 // Copyright 2019-2022 Robotec.ai.
 // Modifications Copyright (c) 2026 Jianbin Liu.
 //
+// Fork modifications:
+// - Added reference-counted ROS2ForUnity lifetime sharing.
+// - Added executor-thread snapshotting so node/executable mutations are not held during callbacks.
+// - Added deterministic Dispose() shutdown and bounded executor thread join.
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -30,6 +35,10 @@ namespace ROS2
     /// </summary>
     public class ROS2UnityCore : IDisposable
     {
+        private const int SpinIntervalMilliseconds = 2;
+        private const double SpinTimeoutSeconds = 0.0001; // 100 us; keeps spin non-blocking relative to the 2 ms tick interval.
+        private static readonly TimeSpan ExecutorJoinTimeout = TimeSpan.FromSeconds(2); // Allow up to 2 s for Tick() to observe quitting and exit.
+
         private ROS2ForUnity ros2forUnity;
         private List<ROS2Node> nodes;
         private List<INode> ros2csNodes; // For performance in spinning
@@ -37,15 +46,18 @@ namespace ROS2
         private HashSet<Action> executableActionSet;
         private readonly List<Action> actionsSnapshot = new List<Action>();
         private readonly List<INode> nodesSnapshot = new List<INode>();
+        // Snapshot versions let Tick() reuse arrays unless node/executable collections changed.
         private int collectionVersion = 0;
         private int snapshotVersion = -1;
+        // volatile: Tick() reads this lock-free in its loop condition after StopExecutor() sets it.
         private volatile bool quitting = false;
         private bool disposed = false;
         private Thread executorThread;
-        private int interval = 2;  // Spinning / executor interval in ms
         private readonly object mutex = new object();
-        private double spinTimeout = 0.0001;
 
+        /// <summary>
+        /// Returns whether this core has a live ROS2ForUnity context and has not been disposed.
+        /// </summary>
         public bool Ok()
         {
             lock (mutex)
@@ -54,6 +66,9 @@ namespace ROS2
             }
         }
 
+        /// <summary>
+        /// Initializes ROS2ForUnity state and starts the background executor thread immediately.
+        /// </summary>
         public ROS2UnityCore()
         {
             Thread threadToStart = null;
@@ -66,12 +81,16 @@ namespace ROS2
                 executableActionSet = new HashSet<Action>();
 
                 executorThread = new Thread(() => Tick());
+                // Background thread: does not prevent process exit if Dispose() is missed during shutdown.
                 executorThread.IsBackground = true;
                 threadToStart = executorThread;
             }
             threadToStart.Start();
         }
 
+        /// <summary>
+        /// Creates a uniquely named ROS 2 node managed by this core.
+        /// </summary>
         public ROS2Node CreateNode(string name)
         {
             lock (mutex)
@@ -92,16 +111,25 @@ namespace ROS2
             }
         }
 
+        /// <summary>
+        /// Removes and disposes a node previously created by this core.
+        /// </summary>
         public void RemoveNode(ROS2Node node)
         {
             RemoveNode(node, true);
         }
 
+        /// <summary>
+        /// Removes a node from this core without disposing it.
+        /// </summary>
         public void DetachNode(ROS2Node node)
         {
             RemoveNode(node, false);
         }
 
+        /// <summary>
+        /// Removes a node and optionally disposes it.
+        /// </summary>
         public void RemoveNode(ROS2Node node, bool dispose)
         {
             if (node == null)
@@ -147,6 +175,9 @@ namespace ROS2
             }
         }
 
+        /// <summary>
+        /// Removes an executable action from the background tick loop.
+        /// </summary>
         public void UnregisterExecutable(Action executable)
         {
             lock (mutex)
@@ -205,7 +236,7 @@ namespace ROS2
                     {
                         try
                         {
-                            Ros2cs.SpinOnce(nodesSnapshot, spinTimeout);
+                            Ros2cs.SpinOnce(nodesSnapshot, SpinTimeoutSeconds);
                         }
                         catch (Exception e)
                         {
@@ -216,7 +247,7 @@ namespace ROS2
                         }
                     }
                 }
-                Thread.Sleep(interval);
+                Thread.Sleep(SpinIntervalMilliseconds);
             }
         }
 
@@ -228,6 +259,9 @@ namespace ROS2
             Dispose();
         }
 
+        /// <summary>
+        /// Stops the executor, disposes nodes, and releases the shared ROS2ForUnity context.
+        /// </summary>
         public void Dispose()
         {
             lock (mutex)
@@ -274,7 +308,7 @@ namespace ROS2
 
             if (threadToJoin != null && threadToJoin != Thread.CurrentThread)
             {
-                if (!threadToJoin.Join(TimeSpan.FromSeconds(2)))
+                if (!threadToJoin.Join(ExecutorJoinTimeout))
                 {
                     Debug.LogWarning("ROS2UnityCore executor thread did not stop within 2 seconds");
                 }
