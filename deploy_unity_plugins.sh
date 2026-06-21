@@ -253,7 +253,7 @@ copy_ros_root_runtime_libs() {
   for pattern in "${patterns[@]}"; do
     files=$(find_ros_runtime_files "$pattern" | sort -u)
     if [ -z "$files" ]; then
-      echo "WARNING: Could not find required ROS2 runtime library pattern '$pattern'. Searched: $search_dirs" >&2
+      echo "WARNING: Could not find ROS2 runtime library candidate pattern '$pattern'. Searched: $search_dirs" >&2
       continue
     fi
     while IFS= read -r file; do
