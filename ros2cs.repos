@@ -11,9 +11,10 @@
 # - Updated the pin to include Phase 17 Unity-safe graph wait and lightweight node options.
 # - Updated the pin to include Phase 18 Lyrical spin fallback review fixes.
 # - Updated the pin to include Phase 20 documentation and distro-isolated build/test outputs.
+# - Updated the pin to include Jazzy/Lyrical generated native typesupport closure fixes.
 #
 repositories:
   src/ros2cs/:
     type: git
     url:     https://github.com/JianbinLiu-CFLab/ros2cs.git
-    version: eb4d61bec7a0f6b0f6eadba9fa1eb918774779f6
+    version: 84bcacf31c702b2270bc40b1b43fc5ba3223a1c1
