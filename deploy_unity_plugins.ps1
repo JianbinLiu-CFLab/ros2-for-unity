@@ -219,6 +219,21 @@ function Assert-RequiredFileGlob {
     }
 }
 
+function Assert-RequiredFileGlobAny {
+    param(
+        [Parameter(Mandatory=$true)][string]$Description,
+        [Parameter(Mandatory=$true)][string[]]$Patterns
+    )
+
+    foreach ($pattern in $Patterns) {
+        if ($null -ne (Get-ChildItem -Path $pattern -File -ErrorAction SilentlyContinue | Select-Object -First 1)) {
+            return
+        }
+    }
+
+    throw "Required deployed $Description is missing: expected one of $($Patterns -join ', ')"
+}
+
 function Get-RosRuntimeSearchDirs {
     # Prefer explicit ROS2_ROOT/bin, then fall back to PATH entries from the sourced ROS environment.
     $candidateDirs = New-Object System.Collections.Generic.List[string]
@@ -361,11 +376,16 @@ try {
             }
         }
 
-        # These DLLs are resolved from the active ROS root/PATH; fastdds uses a wildcard to track distro versioned names.
+        # These DLLs are resolved from the active ROS root/PATH. Jazzy still ships Fast RTPS
+        # as fastrtps-*.dll, while Lyrical ships Fast DDS as fastdds-*.dll.
         $rosRootRuntimeDllPatterns = @(
             "class_loader.dll",
             "fastdds*.dll",
+            "fastrtps*.dll",
             "rcl_logging_implementation.dll",
+            "rcl_logging_interface.dll",
+            "rcl_logging_noop.dll",
+            "rcl_logging_spdlog.dll",
             "rosidl_buffer_backend_registry.dll"
         )
         $rosRootRuntimeSources = @()
@@ -395,16 +415,24 @@ try {
         if ($hasStandaloneDir -or $hasResourcesDir -or (Test-Path -LiteralPath (Join-Path -Path $binDir -ChildPath "rcl.dll"))) {
             Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "rcl.dll")
             Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "class_loader.dll")
-            Assert-RequiredFileGlob -Description "Fast DDS runtime" -Pattern (Join-Path -Path $windowsPluginDir -ChildPath "fastdds*.dll")
+            Assert-RequiredFileGlobAny -Description "Fast DDS/Fast RTPS runtime" -Patterns @(
+                (Join-Path -Path $windowsPluginDir -ChildPath "fastdds*.dll"),
+                (Join-Path -Path $windowsPluginDir -ChildPath "fastrtps*.dll")
+            )
             Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "rmw_implementation.dll")
-            Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "rosidl_buffer_backend_registry.dll")
-            Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "rcl_logging_implementation.dll")
-            Assert-RequiredFile (Join-Path -Path $shareDestination -ChildPath "ament_index\resource_index\packages\rosidl_buffer_backend")
+            Assert-RequiredFileGlobAny -Description "rcl logging runtime" -Patterns @(
+                (Join-Path -Path $windowsPluginDir -ChildPath "rcl_logging_implementation.dll"),
+                (Join-Path -Path $windowsPluginDir -ChildPath "rcl_logging_spdlog.dll"),
+                (Join-Path -Path $windowsPluginDir -ChildPath "rcl_logging_noop.dll")
+            )
             Assert-RequiredFile (Join-Path -Path $shareDestination -ChildPath "ament_index\resource_index\packages\rmw_implementation")
             Assert-RequiredFile (Join-Path -Path $shareDestination -ChildPath "ament_index\resource_index\rmw_typesupport\rmw_fastrtps_cpp")
-            Assert-RequiredFile (Join-Path -Path $streamingAssetsShareDestination -ChildPath "ament_index\resource_index\packages\rosidl_buffer_backend")
             Assert-RequiredFile (Join-Path -Path $streamingAssetsShareDestination -ChildPath "ament_index\resource_index\packages\rmw_implementation")
             Assert-RequiredFile (Join-Path -Path $streamingAssetsShareDestination -ChildPath "ament_index\resource_index\rmw_typesupport\rmw_fastrtps_cpp")
+            if (Test-Path -LiteralPath (Join-Path -Path $windowsPluginDir -ChildPath "rosidl_buffer_backend_registry.dll")) {
+                Assert-RequiredFile (Join-Path -Path $shareDestination -ChildPath "ament_index\resource_index\packages\rosidl_buffer_backend")
+                Assert-RequiredFile (Join-Path -Path $streamingAssetsShareDestination -ChildPath "ament_index\resource_index\packages\rosidl_buffer_backend")
+            }
             $yamlDll = Join-Path -Path $windowsPluginDir -ChildPath "yaml.dll"
             $yamlCppDll = Join-Path -Path $windowsPluginDir -ChildPath "yaml-cpp.dll"
             if (-not ((Test-Path -LiteralPath $yamlDll) -or (Test-Path -LiteralPath $yamlCppDll))) {

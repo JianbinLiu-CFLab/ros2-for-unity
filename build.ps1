@@ -278,11 +278,35 @@ try {
         "--base-paths", $ros2csSourcePath,
         "--build-base", $ros2csBuildBase,
         "--install-base", $ros2csInstallPath,
-        "--merge-install"
+        "--merge-install",
+        "--packages-up-to",
+        "ros2cs_tests",
+        "ros2cs_examples",
+        "std_msgs",
+        "std_srvs",
+        "builtin_interfaces",
+        "unique_identifier_msgs",
+        "action_msgs",
+        "service_msgs",
+        "example_interfaces",
+        "test_msgs",
+        "geometry_msgs",
+        "sensor_msgs",
+        "nav_msgs",
+        "diagnostic_msgs",
+        "shape_msgs",
+        "trajectory_msgs",
+        "tf2_msgs",
+        "visualization_msgs"
     )
     if ($console_direct -or -not $quiet) {
         $colconArgs += @("--event-handlers", "console_direct+")
     }
+    $colconArgs += @(
+        "--packages-skip",
+        "rosidl_dynamic_typesupport_fastrtps",
+        "rosidl_generator_py"
+    )
     $colconArgs += @(
         "--cmake-args",
         "-G", "Ninja",
