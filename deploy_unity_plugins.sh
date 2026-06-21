@@ -121,6 +121,7 @@ copy_ros_runtime_share_closure() {
     ament_index_cpp
     fastcdr
     fastdds
+    fastrtps_cmake_module
     foonathan_memory_vendor
     rcpputils
     rcutils
@@ -237,7 +238,10 @@ copy_ros_root_runtime_libs() {
   local patterns=(
     "libclass_loader.so*"
     "libfastdds.so*"
+    "libfastrtps.so*"
     "librcl_logging_implementation.so*"
+    "librcl_logging_spdlog.so*"
+    "librcl_logging_noop.so*"
     "librosidl_buffer_backend_registry.so*"
   )
   local pattern
@@ -255,6 +259,32 @@ copy_ros_root_runtime_libs() {
     while IFS= read -r file; do
       cp -Lf "$file" "$nativePluginDir/" || return
     done <<< "$files"
+  done
+}
+
+copy_ldconfig_runtime_libs() {
+  # Some ROS Linux packages depend on distribution-provided shared libraries that
+  # are outside the ROS prefix. Copy only the known runtime names needed by the
+  # standalone plugin closure.
+  if ! command -v ldconfig > /dev/null 2>&1; then
+    echo "WARNING: ldconfig is unavailable; skipping system runtime library copy." >&2
+    return 0
+  fi
+
+  local sonames=(
+    "libyaml-cpp.so"
+    "libyaml-cpp.so.0.8"
+    "libyaml-0.so.2"
+  )
+  local soname
+  local file
+
+  for soname in "${sonames[@]}"; do
+    file=$(ldconfig -p 2>/dev/null | awk -v name="$soname" '$1 == name { print $NF; exit }')
+    if [ -z "$file" ]; then
+      continue
+    fi
+    cp -Lf "$file" "$nativePluginDir/" || return
   done
 }
 
@@ -324,6 +354,19 @@ require_file_glob() {
   fi
 }
 
+require_any_file_glob() {
+  local description="$1"
+  shift
+  local pattern
+  for pattern in "$@"; do
+    if compgen -G "$pattern" > /dev/null; then
+      return 0
+    fi
+  done
+  echo "Required deployed ${description} is missing: expected one of: $*" >&2
+  exit 1
+}
+
 run_timed "stale plugin cleanup" remove_deployed_plugin_outputs
 mkdir -p "${nativePluginDir}/"
 run_timed "managed DLL deploy" copy_find_batch "$installRoot/lib/dotnet/" "${pluginDir}" -type f -not -name "*.pdb"
@@ -350,21 +393,23 @@ while IFS= read -r ros_root; do
 done < <(emit_ros_root_candidates | sort -u)
 
 run_timed "ROS2 root runtime lib deploy" copy_ros_root_runtime_libs
+run_timed "system runtime lib deploy" copy_ldconfig_runtime_libs
 run_timed "ros2cs metadata deploy" deploy_metadata_files
 
 if [ -d "$installRoot/standalone" ] || [ -d "$installRoot/resources" ] || compgen -G "$installRoot/lib/librcl.so*" > /dev/null; then
   require_file_glob "rcl runtime" "${nativePluginDir}/librcl.so*"
   require_file_glob "class_loader runtime" "${nativePluginDir}/libclass_loader.so*"
-  require_file_glob "Fast DDS runtime" "${nativePluginDir}/libfastdds.so*"
+  require_any_file_glob "Fast DDS/Fast RTPS runtime" "${nativePluginDir}/libfastdds.so*" "${nativePluginDir}/libfastrtps.so*"
   require_file_glob "rmw implementation runtime" "${nativePluginDir}/librmw_implementation.so*"
-  require_file_glob "rcl logging implementation runtime" "${nativePluginDir}/librcl_logging_implementation.so*"
-  require_file_glob "rosidl buffer backend registry runtime" "${nativePluginDir}/librosidl_buffer_backend_registry.so*"
-  require_file_glob "rosidl_buffer_backend package index" "${nativePluginDir}/share/ament_index/resource_index/packages/rosidl_buffer_backend"
+  require_any_file_glob "rcl logging runtime" "${nativePluginDir}/librcl_logging_implementation.so*" "${nativePluginDir}/librcl_logging_spdlog.so*" "${nativePluginDir}/librcl_logging_noop.so*"
   require_file_glob "rmw_implementation package index" "${nativePluginDir}/share/ament_index/resource_index/packages/rmw_implementation"
   require_file_glob "rmw_fastrtps_cpp typesupport index" "${nativePluginDir}/share/ament_index/resource_index/rmw_typesupport/rmw_fastrtps_cpp"
-  require_file_glob "StreamingAssets rosidl_buffer_backend package index" "${streamingAssetsShareDestination}/ament_index/resource_index/packages/rosidl_buffer_backend"
   require_file_glob "StreamingAssets rmw_implementation package index" "${streamingAssetsShareDestination}/ament_index/resource_index/packages/rmw_implementation"
   require_file_glob "StreamingAssets rmw_fastrtps_cpp typesupport index" "${streamingAssetsShareDestination}/ament_index/resource_index/rmw_typesupport/rmw_fastrtps_cpp"
+  if compgen -G "${nativePluginDir}/librosidl_buffer_backend_registry.so*" > /dev/null; then
+    require_file_glob "rosidl_buffer_backend package index" "${nativePluginDir}/share/ament_index/resource_index/packages/rosidl_buffer_backend"
+    require_file_glob "StreamingAssets rosidl_buffer_backend package index" "${streamingAssetsShareDestination}/ament_index/resource_index/packages/rosidl_buffer_backend"
+  fi
   if ! compgen -G "${nativePluginDir}/libyaml.so*" > /dev/null && ! compgen -G "${nativePluginDir}/libyaml-cpp.so*" > /dev/null; then
     echo "Required deployed YAML runtime is missing: expected libyaml.so* or libyaml-cpp.so* under ${nativePluginDir}/" >&2
     exit 1
