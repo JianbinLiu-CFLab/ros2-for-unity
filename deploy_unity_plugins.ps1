@@ -166,6 +166,7 @@ function Copy-RosRuntimeShareClosure {
         "rmw_implementation",
         "rmw_implementation_cmake",
         "rmw_security_common",
+        "rmw_zenoh_cpp",
         "rosidl_buffer_backend",
         "rosidl_dynamic_typesupport",
         "rosidl_dynamic_typesupport_fastrtps",
