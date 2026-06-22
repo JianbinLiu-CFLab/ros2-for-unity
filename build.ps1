@@ -284,6 +284,7 @@ try {
         "ros2cs_examples",
         "std_msgs",
         "std_srvs",
+        "rosgraph_msgs",
         "builtin_interfaces",
         "unique_identifier_msgs",
         "action_msgs",

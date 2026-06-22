@@ -2,61 +2,77 @@
 Modifications Copyright (c) 2026 Jianbin Liu.
 Modifications by Jianbin Liu:
 - Updated Windows guidance for the JianbinLiu-CFLab Jazzy maintenance line, short-path build policy, artifact evidence, and forked ros2cs troubleshooting links.
+- Documented the supported ROS 2 Lyrical Windows runtime and artifact line.
 -->
 
 # ROS2 For Unity - Windows 10/11
 
 This readme contains information specific to Windows. For general information, please see [README.md](README.md).
 
-Current local maintenance evidence targets Windows 10 LTSC + ROS 2 Jazzy. Windows 11 is expected to use the same toolchain, but should be verified separately before making release claims.
+Current local maintenance evidence targets Windows 10 LTSC + ROS 2 Jazzy and ROS 2 Lyrical. Windows 11 is expected to use the same toolchain, but should be verified separately before making release claims.
 
 ## Current Windows validation snapshot
 
-The current local validation snapshot is:
+The current local Jazzy validation snapshot is:
 
 ```text
 OS:        Windows 10 LTSC
 ROS 2:     Jazzy
 RMW:       rmw_fastrtps_cpp
 Unity:     6000.3.14f1
-R2FU:      v0.6.0-jazzy-win64-preview.1
-ros2cs:    v0.6.0-jazzy-preview.1
+R2FU:      v0.7.0
+ros2cs:    v0.7.0
 Artifact:  Ros2ForUnity_jazzy_standalone_windows_x86_64.zip
-Release:   v0.6.0-jazzy-win64-preview.1
+Release:   v0.7.0
+SHA256:    see the release .sha256.txt asset
+```
+
+The current local Lyrical validation snapshot is:
+
+```text
+OS:        Windows 10 LTSC
+ROS 2:     Lyrical
+RMW:       rmw_fastrtps_cpp
+Unity:     6000.3.14f1
+R2FU:      v0.7.0
+ros2cs:    v0.7.0
+Artifact:  Ros2ForUnity_lyrical_standalone_windows_x86_64.zip
+Release:   v0.7.0
 SHA256:    see the release .sha256.txt asset
 ```
 
 Current source release after the latest cleanup fixes:
 
 ```text
-R2FU:      v0.6.0-jazzy-win64-preview.1
-ros2cs:    v0.6.0-jazzy-preview.1
-Release:   v0.6.0-jazzy-win64-preview.1
-Artifact:  uploaded with matching .sha256.txt and .manifest.json release assets
+R2FU:      v0.7.0
+ros2cs:    v0.7.0
+Release:   v0.7.0
+Artifact:  Jazzy and Lyrical zips uploaded with matching .sha256.txt and .manifest.json release assets
 ```
 
 Validated gates:
 
-- Windows-native standalone build through `build.ps1`.
-- Standalone artifact packaging.
-- `ros2cs_tests`: 82 NUnit tests passed, 0 failed, 0 skipped.
+- Windows-native standalone build through `build.ps1` for Jazzy and Lyrical.
+- Standalone artifact packaging for Jazzy and Lyrical.
+- `ros2cs_tests` passes as part of the Windows full-validation ladders for both Jazzy and Lyrical.
 
 Not yet validated by this snapshot:
 
-- Unity Load smoke for the regenerated `v0.6.0` artifact.
-- Runtime pub/sub or service/client smoke.
-- ROS graph discovery stability.
-- Sensor runtime behavior in a real scene.
-- Unity Player export.
+- Broad Unity Load smoke across every supported Unity/Windows combination.
+- Broad runtime pub/sub or service/client smoke beyond the recorded Jazzy/Lyrical artifact paths.
+- Broad ROS graph discovery stability across every RMW and wait-set mode.
+- Sensor runtime behavior outside the recorded Unity/Lyrical acceptance path.
+- Unity Player export beyond recorded local validation paths.
 - Windows 11.
 
 ## Current toolchain policy
 
-- Use ROS 2 Jazzy through the maintained environment wrapper when running ROS/colcon commands in this workspace.
+- Use ROS 2 Jazzy or ROS 2 Lyrical through the maintained environment wrappers when running ROS/colcon commands in this workspace.
 - Use Ninja as the Windows generator for Jazzy builds. This is the preferred ROS 2 Windows build shape and avoids unsupported Visual Studio generator detection with newer Visual Studio shells.
 - If Visual Studio 2026 / `VSCMD_VER=18.*` is present, do not rely on colcon auto-detecting a Visual Studio generator. Pass `-G Ninja` or set the generator through the wrapper/build orchestrator.
 - If CMake finds the wrong Python, pass `"-DPython3_EXECUTABLE:FILEPATH=<jazzy-pixi-python>"` as one quoted `-D` argument.
 - ROS 2 Jazzy + FastRTPS may print `ERRORFailed to load RTI Connext DDS Micro` while probing installed RMW plugins. Treat it as non-blocking only when `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`, build/test exit codes are 0, and the message appears only in ROS interface package stderr.
+- Lyrical standalone runtime uses the ros2cs direct spin fallback unless `ROS2CS_SPIN_FALLBACK` is overridden. Treat wait-set-specific claims separately from the supported artifact/runtime path.
 
 ## Building
 
@@ -66,7 +82,7 @@ Do not run `colcon build` directly against this repository's `src` directory whe
 
 ### Prerequisites
 
-It is necessary to complete the `ros2cs` Windows prerequisites for the same branch/fork used by this repository. For this maintenance line, `ros2cs.repos` points to the maintained `JianbinLiu-CFLab/ros2cs` preview commit hash recorded in that file. The `main` branch remains the active integration line, but public builds should use pinned inputs.
+It is necessary to complete the `ros2cs` Windows prerequisites for the same branch/fork used by this repository. For this maintenance line, `ros2cs.repos` points to the maintained `JianbinLiu-CFLab/ros2cs` commit hash recorded in that file. The `main` branch remains the active integration line, but public builds should use pinned inputs.
 
 ### Steps
 

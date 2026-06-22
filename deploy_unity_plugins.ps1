@@ -166,6 +166,7 @@ function Copy-RosRuntimeShareClosure {
         "rmw_implementation",
         "rmw_implementation_cmake",
         "rmw_security_common",
+        "rmw_zenoh_cpp",
         "rosidl_buffer_backend",
         "rosidl_dynamic_typesupport",
         "rosidl_dynamic_typesupport_fastrtps",
@@ -199,6 +200,19 @@ function Copy-RosRuntimeShareClosure {
                 -DestinationRoot $DestinationShare `
                 -RelativePath (Join-Path -Path "ament_index\resource_index\$resourceIndex" -ChildPath $packageName)
         }
+    }
+
+    # rmw_zenoh_cpp resolves its session/router config from share\rmw_zenoh_cpp\config at runtime
+    # (FastRTPS needs no such file). These live outside ament_index, so copy them explicitly. The
+    # copy helper early-returns on missing sources, so distros without rmw_zenoh (Jazzy) are unaffected.
+    foreach ($zenohConfig in @(
+        "rmw_zenoh_cpp\config\DEFAULT_RMW_ZENOH_SESSION_CONFIG.json5",
+        "rmw_zenoh_cpp\config\DEFAULT_RMW_ZENOH_ROUTER_CONFIG.json5"
+    )) {
+        Copy-FilePreservingRelativePath `
+            -SourceRoot $SourceShare `
+            -DestinationRoot $DestinationShare `
+            -RelativePath $zenohConfig
     }
 }
 
