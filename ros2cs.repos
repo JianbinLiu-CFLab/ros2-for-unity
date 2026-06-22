@@ -12,9 +12,10 @@
 # - Updated the pin to include Phase 18 Lyrical spin fallback review fixes.
 # - Updated the pin to include Phase 20 documentation and distro-isolated build/test outputs.
 # - Updated the pin to include Jazzy/Lyrical generated native typesupport closure fixes.
+# - Updated the pin to include Lyrical rmw_zenoh_cpp standalone runtime closure.
 #
 repositories:
   src/ros2cs/:
     type: git
     url:     https://github.com/JianbinLiu-CFLab/ros2cs.git
-    version: 7a1721f66e03fd713dab9460bfeeeb1fa5ce5a0c
+    version: 550930d0f2d26cd6743be9353e836e170bbe56d8
