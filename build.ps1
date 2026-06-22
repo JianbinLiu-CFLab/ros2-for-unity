@@ -272,14 +272,7 @@ try {
     } else { $Env:COLCON_PYTHON_EXECUTABLE }
     $colconExecutable = Resolve-RequiredCommand "colcon" "Run this script from a sourced ROS 2 environment so colcon is on PATH."
 
-    $colconArgs = @(
-        "--log-base", $ros2csLogBase,
-        "build",
-        "--base-paths", $ros2csSourcePath,
-        "--build-base", $ros2csBuildBase,
-        "--install-base", $ros2csInstallPath,
-        "--merge-install",
-        "--packages-up-to",
+    $ros2csPackageTargets = @(
         "ros2cs_tests",
         "ros2cs_examples",
         "std_msgs",
@@ -288,18 +281,47 @@ try {
         "builtin_interfaces",
         "unique_identifier_msgs",
         "action_msgs",
-        "service_msgs",
         "example_interfaces",
         "test_msgs",
         "geometry_msgs",
         "sensor_msgs",
         "nav_msgs",
         "diagnostic_msgs",
+        "statistics_msgs",
         "shape_msgs",
         "trajectory_msgs",
+        "tf2",
         "tf2_msgs",
-        "visualization_msgs"
+        "tf2_ros",
+        "visualization_msgs",
+        "composition_interfaces",
+        "lifecycle_msgs",
+        "stereo_msgs"
     )
+
+    $availableRos2csPackages = & $colconExecutable list --base-paths $ros2csSourcePath --names-only
+    if ($LASTEXITCODE -ne 0) {
+        throw "colcon list failed while checking ros2cs package availability."
+    }
+    foreach ($optionalPackage in @(
+        "actionlib_msgs",
+        "service_msgs"
+    )) {
+        if ($availableRos2csPackages -contains $optionalPackage) {
+            $ros2csPackageTargets += $optionalPackage
+        }
+    }
+
+    $colconArgs = @(
+        "--log-base", $ros2csLogBase,
+        "build",
+        "--base-paths", $ros2csSourcePath,
+        "--build-base", $ros2csBuildBase,
+        "--install-base", $ros2csInstallPath,
+        "--merge-install",
+        "--packages-up-to"
+    )
+    $colconArgs += $ros2csPackageTargets
     if ($console_direct -or -not $quiet) {
         $colconArgs += @("--event-handlers", "console_direct+")
     }
