@@ -305,7 +305,8 @@ try {
     }
     foreach ($optionalPackage in @(
         "actionlib_msgs",
-        "service_msgs"
+        "service_msgs",
+        "type_description_interfaces"
     )) {
         if ($availableRos2csPackages -contains $optionalPackage) {
             $ros2csPackageTargets += $optionalPackage
