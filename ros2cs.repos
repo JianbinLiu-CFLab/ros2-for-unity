@@ -13,9 +13,10 @@
 # - Updated the pin to include Phase 20 documentation and distro-isolated build/test outputs.
 # - Updated the pin to include Jazzy/Lyrical generated native typesupport closure fixes.
 # - Updated the pin to include Lyrical rmw_zenoh_cpp standalone runtime closure.
+# - Updated the pin to include Humble Windows official interface coverage and test tooling fixes.
 #
 repositories:
   src/ros2cs/:
     type: git
     url:     https://github.com/JianbinLiu-CFLab/ros2cs.git
-    version: 550930d0f2d26cd6743be9353e836e170bbe56d8
+    version: 07a142431cc8c290277a4dc411de81914430f9e6
