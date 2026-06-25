@@ -400,7 +400,8 @@ try {
             "rcl_logging_interface.dll",
             "rcl_logging_noop.dll",
             "rcl_logging_spdlog.dll",
-            "rosidl_buffer_backend_registry.dll"
+            "rosidl_buffer_backend_registry.dll",
+            "rosidl_dynamic_typesupport_fastrtps.dll"
         )
         $rosRootRuntimeSources = @()
         $runtimeSearchDirs = @(Get-RosRuntimeSearchDirs)
@@ -446,6 +447,10 @@ try {
             if (Test-Path -LiteralPath (Join-Path -Path $windowsPluginDir -ChildPath "rosidl_buffer_backend_registry.dll")) {
                 Assert-RequiredFile (Join-Path -Path $shareDestination -ChildPath "ament_index\resource_index\packages\rosidl_buffer_backend")
                 Assert-RequiredFile (Join-Path -Path $streamingAssetsShareDestination -ChildPath "ament_index\resource_index\packages\rosidl_buffer_backend")
+            }
+            if (Test-Path -LiteralPath (Join-Path -Path $shareDestination -ChildPath "ament_index\resource_index\packages\rosidl_dynamic_typesupport_fastrtps")) {
+                Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "rosidl_dynamic_typesupport_fastrtps.dll")
+                Assert-RequiredFile (Join-Path -Path $streamingAssetsShareDestination -ChildPath "ament_index\resource_index\packages\rosidl_dynamic_typesupport_fastrtps")
             }
             $yamlDll = Join-Path -Path $windowsPluginDir -ChildPath "yaml.dll"
             $yamlCppDll = Join-Path -Path $windowsPluginDir -ChildPath "yaml-cpp.dll"
