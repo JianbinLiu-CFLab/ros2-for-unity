@@ -6,6 +6,7 @@
 ## - Removed stale apt caches after package installs to keep the image smaller.
 ## - Added CI-candidate command helpers and reduced broad filesystem permissions.
 ## - Installed Ninja because the R2FU build scripts explicitly select that generator.
+## - Installed the tf2 benchmark CMake dependency required by source builds with tests.
 
 ARG ROS2_DISTRO=jazzy
 FROM ros:${ROS2_DISTRO}-ros-base
@@ -29,6 +30,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     patchelf \
     rsync \
     ${DOTNET_SDK_PACKAGE} \
+    ros-${ROS_DISTRO}-ament-cmake-google-benchmark \
     ros-${ROS_DISTRO}-test-msgs \
     ros-${ROS_DISTRO}-fastrtps \
     ros-${ROS_DISTRO}-rmw-fastrtps-cpp \
