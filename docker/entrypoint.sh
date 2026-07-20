@@ -5,10 +5,16 @@
 # - Added R2FU_REPO and R2FU_REF overrides for fork-aware container builds.
 # - Preserved the custom messages junction expected by the ros2cs workspace layout.
 # - Added explicit CI-candidate commands: r2fu-shell, r2fu-build, r2fu-smoke, and r2fu-ci.
+# - Sourced Jazzy setup with nounset temporarily disabled for upstream optional variables.
+# - Avoided preserving host ownership, permission, and timestamp metadata when copying a CI local checkout.
+# - Passed R2FU-selected ros2cs build/install roots to the Docker test gate.
 
 set -euo pipefail
 
+# ros:jazzy setup scripts read optional variables without defaults under nounset.
+set +u
 source "/opt/ros/$ROS_DISTRO/setup.bash"
+set -u
 
 # These overrides let CI build a fork/ref without baking repository identity into the image.
 R2FU_REPO=${R2FU_REPO:-https://github.com/JianbinLiu-CFLab/ros2-for-unity.git}
@@ -44,9 +50,9 @@ prepare_workspace() {
       exit 1
     fi
     mkdir -p "$R2FU_WORKDIR"
-    # Preserve the host-mounted install directory; wipe everything else before copying the local checkout.
+    # Preserve the host-mounted install directory; arbitrary container users cannot retain host metadata.
     find "$R2FU_WORKDIR" -mindepth 1 -maxdepth 1 ! -name install -exec rm -rf {} +
-    rsync -a --delete \
+    rsync -a --no-owner --no-group --no-perms --no-times --delete \
       --exclude install \
       --exclude build \
       --exclude log \
@@ -100,7 +106,9 @@ r2fu_test() {
     echo "Update ros2cs.repos or the R2FU Docker test contract before running r2fu-ci." >&2
     exit 1
   fi
-  ./test.sh
+  local ros2cs_build_base="${R2FU_ROS2CS_BUILD_BASE:-$R2FU_WORKDIR/src/ros2cs/build}"
+  local ros2cs_install_base="${R2FU_ROS2CS_INSTALL_BASE:-$R2FU_WORKDIR/src/ros2cs/install}"
+  ./test.sh --build-base "$ros2cs_build_base" --install-base "$ros2cs_install_base"
 }
 
 r2fu_smoke() {

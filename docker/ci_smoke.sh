@@ -3,6 +3,8 @@
 #
 # Purpose:
 # - Added a Docker CI-candidate smoke check for R2FU Linux artifact closure.
+# - Sourced Jazzy setup with nounset temporarily disabled for upstream optional variables.
+# - Derived the managed probe target framework from the installed .NET SDK.
 
 set -euo pipefail
 
@@ -25,7 +27,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# ros:jazzy setup scripts read optional variables without defaults under nounset.
+set +u
 source "/opt/ros/$ROS_DISTRO/setup.bash"
+set -u
 
 require_file() {
   local path="$1"
@@ -69,11 +74,24 @@ require_min_count() {
 }
 
 probe_managed_assemblies() {
-  cat >"$managed_probe_dir/ManagedAssemblyProbe.csproj" <<'EOF'
+  local dotnet_sdk_version
+  local dotnet_sdk_major
+  local target_framework
+
+  dotnet_sdk_version=$(dotnet --version)
+  dotnet_sdk_major=${dotnet_sdk_version%%.*}
+  if ! [[ "$dotnet_sdk_major" =~ ^[0-9]+$ ]]; then
+    echo "Could not determine the .NET SDK major version from '$dotnet_sdk_version'." >&2
+    exit 1
+  fi
+  target_framework="net${dotnet_sdk_major}.0"
+  echo "Managed assembly probe target framework: $target_framework (SDK $dotnet_sdk_version)"
+
+  cat >"$managed_probe_dir/ManagedAssemblyProbe.csproj" <<EOF
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>$target_framework</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
