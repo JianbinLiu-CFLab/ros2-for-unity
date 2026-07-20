@@ -15,9 +15,10 @@
 # - Updated the pin to include Lyrical rmw_zenoh_cpp standalone runtime closure.
 # - Updated the pin to include Humble Windows official interface coverage and test tooling fixes.
 # - Updated the pin to the merged ros2cs Humble/Jazzy/Lyrical runtime closure baseline.
+# - Updated the pin to the merged Windows long-path native loader baseline.
 #
 repositories:
   src/ros2cs/:
     type: git
     url:     https://github.com/JianbinLiu-CFLab/ros2cs.git
-    version: bfe3afdd26ef811284e121f0741b2391f90feb91
+    version: cf500877068de5d8f487080d2c06cb8731581c83
