@@ -2,15 +2,15 @@
 ## Modifications Copyright (c) 2026 Jianbin Liu.
 ##
 ## Modifications by Jianbin Liu:
-## - Defaulted the container toolchain to Jazzy/.NET 8.
+## - Defaulted the container toolchain to Jazzy/.NET 10 to match ros2cs tests.
 ## - Removed stale apt caches after package installs to keep the image smaller.
 ## - Added CI-candidate command helpers and reduced broad filesystem permissions.
 ## - Installed Ninja because the R2FU build scripts explicitly select that generator.
 
 ARG ROS2_DISTRO=jazzy
 FROM ros:${ROS2_DISTRO}-ros-base
-# .NET 8 LTS matches the current ros2cs build target; upgrade only after Unity/R2FU plugin compatibility is verified.
-ARG DOTNET_SDK_PACKAGE=dotnet-sdk-8.0
+# .NET 10 matches the current ros2cs test target; core/common remain netstandard2.0 for Unity compatibility.
+ARG DOTNET_SDK_PACKAGE=dotnet-sdk-10.0
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ENV DEBIAN_FRONTEND=noninteractive
