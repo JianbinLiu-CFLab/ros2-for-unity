@@ -43,7 +43,7 @@ R2FU_DOCKER_IMAGE=ros2-for-unity:jazzy-ci-candidate ./build_image.sh
 Optional .NET SDK package override:
 
 ```bash
-R2FU_DOTNET_SDK_PACKAGE=dotnet-sdk-8.0 ./build_image.sh
+R2FU_DOTNET_SDK_PACKAGE=dotnet-sdk-10.0 ./build_image.sh
 ```
 
 ## Using docker container
