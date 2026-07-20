@@ -3,6 +3,7 @@
 #
 # Purpose:
 # - Added a Docker CI-candidate smoke check for R2FU Linux artifact closure.
+# - Initialized the optional ROS setup trace variable before sourcing Jazzy under nounset.
 
 set -euo pipefail
 
@@ -25,6 +26,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# ros:jazzy setup.bash reads this optional variable without a default under nounset.
+: "${AMENT_TRACE_SETUP_FILES:=}"
 source "/opt/ros/$ROS_DISTRO/setup.bash"
 
 require_file() {

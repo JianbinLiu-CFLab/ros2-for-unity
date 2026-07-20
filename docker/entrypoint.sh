@@ -5,9 +5,12 @@
 # - Added R2FU_REPO and R2FU_REF overrides for fork-aware container builds.
 # - Preserved the custom messages junction expected by the ros2cs workspace layout.
 # - Added explicit CI-candidate commands: r2fu-shell, r2fu-build, r2fu-smoke, and r2fu-ci.
+# - Initialized the optional ROS setup trace variable before sourcing Jazzy under nounset.
 
 set -euo pipefail
 
+# ros:jazzy setup.bash reads this optional variable without a default under nounset.
+: "${AMENT_TRACE_SETUP_FILES:=}"
 source "/opt/ros/$ROS_DISTRO/setup.bash"
 
 # These overrides let CI build a fork/ref without baking repository identity into the image.
