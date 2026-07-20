@@ -5,6 +5,7 @@
 ## - Defaulted the container toolchain to Jazzy/.NET 8.
 ## - Removed stale apt caches after package installs to keep the image smaller.
 ## - Added CI-candidate command helpers and reduced broad filesystem permissions.
+## - Installed Ninja because the R2FU build scripts explicitly select that generator.
 
 ARG ROS2_DISTRO=jazzy
 FROM ros:${ROS2_DISTRO}-ros-base
@@ -24,6 +25,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     ca-certificates \
     curl \
     git \
+    ninja-build \
     patchelf \
     rsync \
     ${DOTNET_SDK_PACKAGE} \
