@@ -16,9 +16,10 @@
 # - Updated the pin to include Humble Windows official interface coverage and test tooling fixes.
 # - Updated the pin to the merged ros2cs Humble/Jazzy/Lyrical runtime closure baseline.
 # - Updated the pin to the merged Windows long-path native loader baseline.
+# - Updated the pin to include MAX_PATH fixture hardening.
 #
 repositories:
   src/ros2cs/:
     type: git
     url:     https://github.com/JianbinLiu-CFLab/ros2cs.git
-    version: cf500877068de5d8f487080d2c06cb8731581c83
+    version: be0cfe44fb3ce38dd83e855d46581393766b3953
