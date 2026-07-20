@@ -6,7 +6,7 @@
 # - Preserved the custom messages junction expected by the ros2cs workspace layout.
 # - Added explicit CI-candidate commands: r2fu-shell, r2fu-build, r2fu-smoke, and r2fu-ci.
 # - Sourced Jazzy setup with nounset temporarily disabled for upstream optional variables.
-# - Avoided preserving host ownership and permission metadata when copying a CI local checkout.
+# - Avoided preserving host ownership, permission, and timestamp metadata when copying a CI local checkout.
 # - Passed R2FU-selected ros2cs build/install roots to the Docker test gate.
 
 set -euo pipefail
@@ -52,7 +52,7 @@ prepare_workspace() {
     mkdir -p "$R2FU_WORKDIR"
     # Preserve the host-mounted install directory; arbitrary container users cannot retain host metadata.
     find "$R2FU_WORKDIR" -mindepth 1 -maxdepth 1 ! -name install -exec rm -rf {} +
-    rsync -a --no-owner --no-group --no-perms --delete \
+    rsync -a --no-owner --no-group --no-perms --no-times --delete \
       --exclude install \
       --exclude build \
       --exclude log \
