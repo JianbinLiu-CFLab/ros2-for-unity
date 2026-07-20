@@ -7,6 +7,7 @@
 # - Added explicit CI-candidate commands: r2fu-shell, r2fu-build, r2fu-smoke, and r2fu-ci.
 # - Sourced Jazzy setup with nounset temporarily disabled for upstream optional variables.
 # - Avoided preserving host ownership and permission metadata when copying a CI local checkout.
+# - Passed R2FU-selected ros2cs build/install roots to the Docker test gate.
 
 set -euo pipefail
 
@@ -105,7 +106,9 @@ r2fu_test() {
     echo "Update ros2cs.repos or the R2FU Docker test contract before running r2fu-ci." >&2
     exit 1
   fi
-  ./test.sh
+  local ros2cs_build_base="${R2FU_ROS2CS_BUILD_BASE:-$R2FU_WORKDIR/src/ros2cs/build}"
+  local ros2cs_install_base="${R2FU_ROS2CS_INSTALL_BASE:-$R2FU_WORKDIR/src/ros2cs/install}"
+  ./test.sh --build-base "$ros2cs_build_base" --install-base "$ros2cs_install_base"
 }
 
 r2fu_smoke() {
