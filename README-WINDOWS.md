@@ -3,15 +3,29 @@ Modifications Copyright (c) 2026 Jianbin Liu.
 Modifications by Jianbin Liu:
 - Updated Windows guidance for the JianbinLiu-CFLab Jazzy maintenance line, short-path build policy, artifact evidence, and forked ros2cs troubleshooting links.
 - Documented the supported ROS 2 Lyrical Windows runtime and artifact line.
+- Documented the ROS 2 Humble Windows standalone artifact line and its validation boundary.
 -->
 
 # ROS2 For Unity - Windows 10/11
 
 This readme contains information specific to Windows. For general information, please see [README.md](README.md).
 
-Current local maintenance evidence targets Windows 10 LTSC + ROS 2 Jazzy and ROS 2 Lyrical. Windows 11 is expected to use the same toolchain, but should be verified separately before making release claims.
+Current local artifact evidence covers ROS 2 Humble, Jazzy, and Lyrical Windows standalone packages. The deepest recorded Unity-facing validation remains the Windows 10 LTSC Jazzy/Lyrical path; Windows 11 should be verified separately before making release claims.
 
 ## Current Windows validation snapshot
+
+The current Humble artifact validation snapshot is:
+
+```text
+ROS 2:     Humble
+RMW:       rmw_fastrtps_cpp
+R2FU:      v0.8.0
+ros2cs:    v0.8.0
+Artifact:  Ros2ForUnity_humble_standalone_windows_x86_64.zip
+Release:   v0.8.0
+SHA256:    see the release .sha256.txt asset
+Scope:     build/package closure; Unity Load and Runtime Smoke not yet revalidated
+```
 
 The current local Jazzy validation snapshot is:
 
@@ -20,10 +34,10 @@ OS:        Windows 10 LTSC
 ROS 2:     Jazzy
 RMW:       rmw_fastrtps_cpp
 Unity:     6000.3.14f1
-R2FU:      v0.7.0
-ros2cs:    v0.7.0
+R2FU:      v0.8.0
+ros2cs:    v0.8.0
 Artifact:  Ros2ForUnity_jazzy_standalone_windows_x86_64.zip
-Release:   v0.7.0
+Release:   v0.8.0
 SHA256:    see the release .sha256.txt asset
 ```
 
@@ -34,26 +48,26 @@ OS:        Windows 10 LTSC
 ROS 2:     Lyrical
 RMW:       rmw_fastrtps_cpp
 Unity:     6000.3.14f1
-R2FU:      v0.7.0
-ros2cs:    v0.7.0
+R2FU:      v0.8.0
+ros2cs:    v0.8.0
 Artifact:  Ros2ForUnity_lyrical_standalone_windows_x86_64.zip
-Release:   v0.7.0
+Release:   v0.8.0
 SHA256:    see the release .sha256.txt asset
 ```
 
 Current source release after the latest cleanup fixes:
 
 ```text
-R2FU:      v0.7.0
-ros2cs:    v0.7.0
-Release:   v0.7.0
-Artifact:  Jazzy and Lyrical zips uploaded with matching .sha256.txt and .manifest.json release assets
+R2FU:      v0.8.0
+ros2cs:    v0.8.0
+Release:   v0.8.0
+Artifact:  Humble, Jazzy, and Lyrical zips uploaded with matching .sha256.txt and .manifest.json release assets
 ```
 
 Validated gates:
 
-- Windows-native standalone build through `build.ps1` for Jazzy and Lyrical.
-- Standalone artifact packaging for Jazzy and Lyrical.
+- Windows-native standalone build through `build.ps1` for Humble, Jazzy, and Lyrical.
+- Standalone artifact packaging for Humble, Jazzy, and Lyrical.
 - `ros2cs_tests` passes as part of the Windows full-validation ladders for both Jazzy and Lyrical.
 
 Not yet validated by this snapshot:
@@ -67,7 +81,7 @@ Not yet validated by this snapshot:
 
 ## Current toolchain policy
 
-- Use ROS 2 Jazzy or ROS 2 Lyrical through the maintained environment wrappers when running ROS/colcon commands in this workspace.
+- Use ROS 2 Humble, Jazzy, or Lyrical through the maintained environment wrappers when running ROS/colcon commands in this workspace.
 - Use Ninja as the Windows generator for Jazzy builds. This is the preferred ROS 2 Windows build shape and avoids unsupported Visual Studio generator detection with newer Visual Studio shells.
 - If Visual Studio 2026 / `VSCMD_VER=18.*` is present, do not rely on colcon auto-detecting a Visual Studio generator. Pass `-G Ninja` or set the generator through the wrapper/build orchestrator.
 - If CMake finds the wrong Python, pass `"-DPython3_EXECUTABLE:FILEPATH=<jazzy-pixi-python>"` as one quoted `-D` argument.
