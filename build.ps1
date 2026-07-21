@@ -16,15 +16,19 @@
     Preserve the chatty console_direct+ colcon output. This is the default for compatibility.
 .PARAMETER strict_pin
     Fail when the local src\ros2cs checkout does not match ros2cs.repos. By default this is a warning.
+.PARAMETER skip_ros2cs_clean
+    Let an outer release wrapper clean ros2cs build roots before it supplies subst-drive mappings.
 
 Copyright (c) 2026 Jianbin Liu.
 
 Purpose:
 - Added strict/fail-fast behavior for Windows builds.
-- Routed ros2cs builds through the canonical ros2cs workspace with short build roots.
+- Routed ros2cs builds through the canonical ros2cs workspace with caller-supplied build roots.
 - Preserved standalone asset deployment as the public Windows packaging path.
 - Added phase timing, quiet/verbose output control, and robocopy-based asset staging.
 - Bound colcon and Ninja parallelism through ROS2CS_PARALLEL_WORKERS for stable parallel Windows release builds.
+- Honors a caller-supplied ros2cs root so long-path aliases stay intact through colcon.
+- Adds temporary subst-drive aliases for direct standalone builds when an outer release wrapper did not supply them.
 #>
 Param (
     [Parameter(Mandatory=$false)][switch]$with_tests=$false,
@@ -32,7 +36,8 @@ Param (
     [Parameter(Mandatory=$false)][switch]$clean_install=$false,
     [Parameter(Mandatory=$false)][switch]$quiet=$false,
     [Parameter(Mandatory=$false)][switch]$console_direct=$false,
-    [Parameter(Mandatory=$false)][switch]$strict_pin=$false
+    [Parameter(Mandatory=$false)][switch]$strict_pin=$false,
+    [Parameter(Mandatory=$false)][switch]$skip_ros2cs_clean=$false
 )
 
 $ErrorActionPreference = 'Stop'
@@ -41,6 +46,9 @@ Set-StrictMode -Version Latest
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $script:TimingRows = New-Object System.Collections.Generic.List[object]
 $script:TotalStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+$script:SubstMappings = New-Object System.Collections.Generic.List[object]
+$script:SubstExecutable = $null
+$script:SubstDriveCandidates = @("R", "S", "T", "U", "V", "W", "X", "Y", "Z", "Q", "P", "O", "N", "M", "L", "K", "J", "I", "H", "G", "F")
 
 function Format-Duration {
     param([Parameter(Mandatory=$true)][TimeSpan]$Elapsed)
@@ -115,17 +123,6 @@ function Invoke-RobocopyMirror {
     $global:LASTEXITCODE = 0
 }
 
-function Get-DefaultWorkPath {
-    # Put default short work roots at the drive root to keep generated ROS/MSVC paths under Windows limits.
-    param([Parameter(Mandatory=$true)][string]$Name)
-    $driveRoot = [System.IO.Path]::GetPathRoot($scriptPath)
-    if ([string]::IsNullOrEmpty($driveRoot))
-    {
-        $driveRoot = [System.IO.Path]::GetPathRoot((Get-Location).Path)
-    }
-    return Join-Path -Path $driveRoot -ChildPath $Name
-}
-
 function Resolve-RequiredCommand {
     # Resolve tool paths early so missing ROS/Python tooling fails before the long colcon build.
     param(
@@ -138,6 +135,109 @@ function Resolve-RequiredCommand {
     } catch {
         throw "Required command '$Name' was not found. $Hint"
     }
+}
+
+# Return a stable full path for subst ownership checks without dereferencing a logical drive alias.
+function Get-ComparablePath {
+    param([Parameter(Mandatory=$true)][string]$Path)
+
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    if ($fullPath.Length -gt 3) {
+        return $fullPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    }
+    return $fullPath
+}
+
+# Resolve subst.exe lazily so ordinary wrapper-provided builds do not need an extra tool lookup.
+function Get-SubstExecutable {
+    if ([string]::IsNullOrWhiteSpace($script:SubstExecutable)) {
+        $script:SubstExecutable = Resolve-RequiredCommand "subst.exe" "Windows subst.exe is required for transparent long-path builds."
+    }
+    return $script:SubstExecutable
+}
+
+# Return the physical target for one active subst drive, or null when it is not subst-managed.
+function Get-SubstDriveTarget {
+    param([Parameter(Mandatory=$true)][string]$Drive)
+
+    $normalizedDrive = $Drive.Trim().TrimEnd(':').ToUpperInvariant() + ":"
+    $lines = @(& (Get-SubstExecutable) 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "subst.exe could not list active mappings (exit code $LASTEXITCODE)."
+    }
+
+    $prefixPattern = [regex]::Escape($normalizedDrive + "\") + ":"
+    foreach ($line in $lines) {
+        $match = [regex]::Match([string]$line, "^\s*$prefixPattern\s*=>\s*(.+?)\s*$", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        if ($match.Success) {
+            return (Get-ComparablePath $match.Groups[1].Value)
+        }
+    }
+    return $null
+}
+
+# Create an owned subst mapping only on a currently unused drive letter.
+function New-OwnedSubstDrive {
+    param(
+        [Parameter(Mandatory=$true)][string]$Target,
+        [Parameter(Mandatory=$true)][string]$Label
+    )
+
+    $fullTarget = Get-ComparablePath $Target
+    if (-not (Test-Path -LiteralPath $fullTarget)) {
+        throw "$Label subst target does not exist: $fullTarget"
+    }
+
+    $substExecutable = Get-SubstExecutable
+    foreach ($letter in $script:SubstDriveCandidates) {
+        $drive = "$letter`:"
+        if ($null -ne (Get-SubstDriveTarget -Drive $drive) -or (Test-Path -LiteralPath "$drive\")) {
+            continue
+        }
+
+        $output = @(& $substExecutable $drive $fullTarget 2>&1)
+        if ($LASTEXITCODE -ne 0) {
+            continue
+        }
+
+        $actualTarget = Get-SubstDriveTarget -Drive $drive
+        if ($null -eq $actualTarget -or (Get-ComparablePath $actualTarget) -ne $fullTarget) {
+            throw "$Label subst mapping was not created safely: $drive => $actualTarget"
+        }
+
+        $script:SubstMappings.Add([pscustomobject]@{
+            drive = $drive
+            target = $fullTarget
+            label = $Label
+        }) | Out-Null
+        return "$drive\"
+    }
+
+    throw "No unused subst drive is available for $Label."
+}
+
+# Remove only subst mappings made by this script and still pointing at the registered target.
+function Remove-OwnedSubstDrives {
+    foreach ($mapping in @($script:SubstMappings | Sort-Object drive -Descending)) {
+        try {
+            $actualTarget = Get-SubstDriveTarget -Drive $mapping.drive
+            if ($null -eq $actualTarget) {
+                continue
+            }
+            if ((Get-ComparablePath $actualTarget) -ne $mapping.target) {
+                Write-Warning "Refusing to remove changed subst mapping '$($mapping.drive)' for '$($mapping.label)'."
+                continue
+            }
+
+            $output = @(& (Get-SubstExecutable) $mapping.drive "/D" 2>&1)
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warning "Could not remove owned subst mapping '$($mapping.drive)': $($output -join ' ')"
+            }
+        } catch {
+            Write-Warning "Could not inspect owned subst mapping '$($mapping.drive)': $($_.Exception.Message)"
+        }
+    }
+    $script:SubstMappings.Clear()
 }
 
 function Resolve-Ros2csParallelWorkers {
@@ -248,25 +348,38 @@ try {
     $tests_switch = if ($with_tests) { 1 } else { 0 }
     $standalone_switch = if ($standalone) { 1 } else { 0 }
 
-    # Resolve the junction target so colcon builds the canonical ros2cs workspace, not the R2FU src wrapper.
     $ros2csItem = Get-Item "$scriptPath\src\ros2cs" -Force
-    $ros2csPath = if ($ros2csItem.Target -and $ros2csItem.Target.Count -gt 0) { $ros2csItem.Target[0] } else { $ros2csItem.FullName }
+    $canonicalRos2csPath = if ($ros2csItem.Target -and $ros2csItem.Target.Count -gt 0) { $ros2csItem.Target[0] } else { $ros2csItem.FullName }
+    # Preserve an outer wrapper's logical alias; direct standalone builds create an owned alias for the canonical source root.
+    $ros2csPath = if (-not [string]::IsNullOrWhiteSpace($Env:R2FU_ROS2CS_ROOT)) {
+        [System.IO.Path]::GetFullPath($Env:R2FU_ROS2CS_ROOT)
+    } else {
+        New-OwnedSubstDrive -Target $canonicalRos2csPath -Label "default ros2cs source"
+    }
     $ros2csSourcePath = Join-Path -Path $ros2csPath -ChildPath "src"
-    # R2FU_ROS2CS_* overrides let outer validation scripts share or isolate ros2cs build/install/log roots.
+    # R2FU_ROS2CS_* overrides let outer validation scripts map source/build/install/log roots together.
     $ros2csInstallPath = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_INSTALL_BASE)) {
         Join-Path -Path $ros2csPath -ChildPath "install"
     } else { $Env:R2FU_ROS2CS_INSTALL_BASE }
-    # Keep generated ROS/MSVC object paths short while allowing CI or local scripts to override the roots.
-    $ros2csBuildBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_BUILD_BASE)) { Get-DefaultWorkPath "r2fu_b" } else { $Env:R2FU_ROS2CS_BUILD_BASE }
-    $ros2csLogBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_LOG_BASE)) { Get-DefaultWorkPath "r2fu_l" } else { $Env:R2FU_ROS2CS_LOG_BASE }
+    # Keep default scratch repository-owned and map it only when the caller did not supply both output roots.
+    $mappedDefaultWorkRoot = $null
+    if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_BUILD_BASE) -or [string]::IsNullOrEmpty($Env:R2FU_ROS2CS_LOG_BASE)) {
+        $defaultWorkRoot = Join-Path -Path $scriptPath -ChildPath ".build"
+        New-Item -ItemType Directory -Force -Path $defaultWorkRoot | Out-Null
+        $mappedDefaultWorkRoot = New-OwnedSubstDrive -Target $defaultWorkRoot -Label "default ros2cs build/log"
+    }
+    $ros2csBuildBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_BUILD_BASE)) { Join-Path -Path $mappedDefaultWorkRoot -ChildPath "r2fu_b" } else { $Env:R2FU_ROS2CS_BUILD_BASE }
+    $ros2csLogBase = if ([string]::IsNullOrEmpty($Env:R2FU_ROS2CS_LOG_BASE)) { Join-Path -Path $mappedDefaultWorkRoot -ChildPath "r2fu_l" } else { $Env:R2FU_ROS2CS_LOG_BASE }
     Assert-Ros2csPin -Ros2csPath $ros2csPath -ReposPath (Join-Path -Path $scriptPath -ChildPath "ros2cs.repos") -Strict ([bool]$strict_pin)
 
     if($clean_install) {
         Invoke-Timed "clean install" {
             Remove-DirectoryIfPresent -Path (Join-Path -Path $scriptPath -ChildPath "install") -Description "R2FU install directory"
-            Remove-DirectoryIfPresent -Path $ros2csBuildBase -Description "ros2cs build base"
-            Remove-DirectoryIfPresent -Path $ros2csLogBase -Description "ros2cs log base"
-            Remove-DirectoryIfPresent -Path $ros2csInstallPath -Description "ros2cs install base"
+            if (-not $skip_ros2cs_clean) {
+                Remove-DirectoryIfPresent -Path $ros2csBuildBase -Description "ros2cs build base"
+                Remove-DirectoryIfPresent -Path $ros2csLogBase -Description "ros2cs log base"
+                Remove-DirectoryIfPresent -Path $ros2csInstallPath -Description "ros2cs install base"
+            }
         }
     }
 
@@ -416,7 +529,12 @@ try {
     }
 }
 finally {
-    Write-TimingSummary
+    try {
+        Write-TimingSummary
+    }
+    finally {
+        Remove-OwnedSubstDrives
+    }
 }
 
 
