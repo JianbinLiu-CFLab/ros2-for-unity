@@ -24,6 +24,7 @@ Purpose:
 - Routed ros2cs builds through the canonical ros2cs workspace with short build roots.
 - Preserved standalone asset deployment as the public Windows packaging path.
 - Added phase timing, quiet/verbose output control, and robocopy-based asset staging.
+- Bound colcon and Ninja parallelism through ROS2CS_PARALLEL_WORKERS for stable parallel Windows release builds.
 #>
 Param (
     [Parameter(Mandatory=$false)][switch]$with_tests=$false,
@@ -137,6 +138,19 @@ function Resolve-RequiredCommand {
     } catch {
         throw "Required command '$Name' was not found. $Hint"
     }
+}
+
+function Resolve-Ros2csParallelWorkers {
+    # Keep one colcon package active while this value bounds native compiler jobs inside Ninja.
+    if ([string]::IsNullOrWhiteSpace($Env:ROS2CS_PARALLEL_WORKERS)) {
+        return [Math]::Max(1, [System.Environment]::ProcessorCount)
+    }
+
+    [int]$workers = 0
+    if (-not [int]::TryParse($Env:ROS2CS_PARALLEL_WORKERS, [ref]$workers) -or $workers -lt 1) {
+        throw "ROS2CS_PARALLEL_WORKERS must be a positive integer when set."
+    }
+    return $workers
 }
 
 function Remove-DirectoryIfPresent {
@@ -271,6 +285,7 @@ try {
         Resolve-RequiredCommand "python" "Run this script from a sourced ROS 2 environment, or set COLCON_PYTHON_EXECUTABLE."
     } else { $Env:COLCON_PYTHON_EXECUTABLE }
     $colconExecutable = Resolve-RequiredCommand "colcon" "Run this script from a sourced ROS 2 environment so colcon is on PATH."
+    $ros2csParallelWorkers = Resolve-Ros2csParallelWorkers
 
     $ros2csPackageTargets = @(
         "ros2cs_tests",
@@ -320,6 +335,8 @@ try {
         "--build-base", $ros2csBuildBase,
         "--install-base", $ros2csInstallPath,
         "--merge-install",
+        # Serial package scheduling prevents colcon package workers and Ninja jobs from multiplying.
+        "--parallel-workers", "1",
         "--packages-up-to"
     )
     $colconArgs += $ros2csPackageTargets
@@ -341,16 +358,27 @@ try {
         "--no-warn-unused-cli"
     )
 
-    Write-Host "Building ros2cs from '$ros2csPath' with Ninja/Release..." -ForegroundColor Green
+    Write-Host "Building ros2cs from '$ros2csPath' with Ninja/Release (one package, $ros2csParallelWorkers native jobs)..." -ForegroundColor Green
     if ($quiet -and -not $console_direct) {
         Write-Host "Quiet mode: colcon console_direct+ is disabled; inspect logs under '$ros2csLogBase' on failure." -ForegroundColor Yellow
     }
 
-    Invoke-Timed "ros2cs colcon build" {
-        & $colconExecutable @colconArgs
-        if($LASTEXITCODE -ne 0) {
-            Write-LatestColconLogTail -LogBase $ros2csLogBase
-            throw "Ros2cs build failed with exit code $LASTEXITCODE"
+    $previousMakeflags = $env:MAKEFLAGS
+    try {
+        # colcon_cmake forwards MAKEFLAGS to CMake/Ninja; restore the caller's value after this build.
+        $env:MAKEFLAGS = "-j$ros2csParallelWorkers -l$ros2csParallelWorkers"
+        Invoke-Timed "ros2cs colcon build" {
+            & $colconExecutable @colconArgs
+            if($LASTEXITCODE -ne 0) {
+                Write-LatestColconLogTail -LogBase $ros2csLogBase
+                throw "Ros2cs build failed with exit code $LASTEXITCODE"
+            }
+        }
+    } finally {
+        if ($null -eq $previousMakeflags) {
+            Remove-Item Env:MAKEFLAGS -ErrorAction SilentlyContinue
+        } else {
+            $env:MAKEFLAGS = $previousMakeflags
         }
     }
 
