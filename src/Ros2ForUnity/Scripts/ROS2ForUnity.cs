@@ -1,10 +1,11 @@
 // Copyright 2019-2021 Robotec.ai.
 // Modifications Copyright (c) 2026 Jianbin Liu.
 //
-// Fork modifications:
+// Modifications by Jianbin Liu:
 // - Added Jazzy/Lyrical distro support and Lyrical ROS2CS_SPIN_FALLBACK setup.
 // - Added Unicode Windows CRT environment writes for standalone native getenv callers.
 // - Added reference-counted init/shutdown, editor shutdown hooks, and standalone runtime path probing.
+// - Sealed custom native plugin registration before ros2cs initialization.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -615,7 +616,16 @@ internal class ROS2ForUnity : IDisposable
 
             // Initialize
             ConnectLoggers();
-            Ros2cs.Init();
+            Ros2ForUnityNativePluginBootstrap.SealNativeLibraryRegistration();
+            try
+            {
+                Ros2cs.Init();
+            }
+            catch
+            {
+                Ros2ForUnityNativePluginBootstrap.ResetNativeLibraryRegistration();
+                throw;
+            }
             RegisterCtrlCHandler();
 
             string rmwImpl = Ros2cs.GetRMWImplementation();
@@ -758,6 +768,7 @@ internal class ROS2ForUnity : IDisposable
                 isInitialized = false;
                 referenceCount = 0;
                 shutdownInProgress = false;
+                Ros2ForUnityNativePluginBootstrap.ResetNativeLibraryRegistration();
                 UnregisterCtrlCHandlerStatic();
             }
         }
