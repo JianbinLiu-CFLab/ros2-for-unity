@@ -19,10 +19,10 @@ The current Humble artifact validation snapshot is:
 ```text
 ROS 2:     Humble
 RMW:       rmw_fastrtps_cpp
-R2FU:      v0.8.1
-ros2cs:    v0.8.1
+R2FU:      v0.8.3
+ros2cs:    v0.8.3
 Artifact:  Ros2ForUnity_humble_standalone_windows_x86_64.zip
-Release:   v0.8.1
+Release:   v0.8.3
 SHA256:    see the release .sha256.txt asset
 Scope:     build/package closure; Unity Load and Runtime Smoke not yet revalidated
 ```
@@ -34,10 +34,10 @@ OS:        Windows 10 LTSC
 ROS 2:     Jazzy
 RMW:       rmw_fastrtps_cpp
 Unity:     6000.3.14f1
-R2FU:      v0.8.1
-ros2cs:    v0.8.1
+R2FU:      v0.8.3
+ros2cs:    v0.8.3
 Artifact:  Ros2ForUnity_jazzy_standalone_windows_x86_64.zip
-Release:   v0.8.1
+Release:   v0.8.3
 SHA256:    see the release .sha256.txt asset
 ```
 
@@ -48,19 +48,19 @@ OS:        Windows 10 LTSC
 ROS 2:     Lyrical
 RMW:       rmw_fastrtps_cpp
 Unity:     6000.3.14f1
-R2FU:      v0.8.1
-ros2cs:    v0.8.1
+R2FU:      v0.8.3
+ros2cs:    v0.8.3
 Artifact:  Ros2ForUnity_lyrical_standalone_windows_x86_64.zip
-Release:   v0.8.1
+Release:   v0.8.3
 SHA256:    see the release .sha256.txt asset
 ```
 
 Current source release after the latest cleanup fixes:
 
 ```text
-R2FU:      v0.8.1
-ros2cs:    v0.8.1
-Release:   v0.8.1
+R2FU:      v0.8.3
+ros2cs:    v0.8.3
+Release:   v0.8.3
 Artifact:  Humble, Jazzy, and Lyrical zips uploaded with matching .sha256.txt and .manifest.json release assets
 ```
 

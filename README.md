@@ -32,7 +32,7 @@ This fork consumes the maintained ros2cs fork through `ros2cs.repos`:
 
 ```text
 https://github.com/JianbinLiu-CFLab/ros2cs.git
-version: 8bf7ba834054293b99efd82f05743726b622a6cb
+version: b37c6177ea48355df6cbee07bf25068f39472303
 ```
 
 The `main` branch remains the active integration line, while public build inputs are pinned to verified commit hashes for reproducibility. Pin history and purpose are tracked in `ros2cs.repos`.
@@ -46,9 +46,9 @@ Current local artifact evidence covers Windows standalone packages for ROS 2 Hum
 Verified on the current maintenance line:
 
 - Build GREEN: Windows-native Humble, Jazzy, and Lyrical standalone asset builds through `build.ps1`, using the canonical `ros2cs` workspace and documented short-path Windows layout.
-- Latest source release: [`v0.8.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.8.1).
-- Latest packaged Windows artifact: [`v0.8.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.8.1).
-- Current `v0.8.1` artifacts: `Ros2ForUnity_humble_standalone_windows_x86_64.zip`, `Ros2ForUnity_jazzy_standalone_windows_x86_64.zip`, and `Ros2ForUnity_lyrical_standalone_windows_x86_64.zip`. The release publishes matching `.sha256.txt` and `.manifest.json` files next to each zip. Optional `.unitypackage` outputs are created by `create_unity_package.*` and include their own adjacent `.sha256.txt`; they are not covered by the zip manifests.
+- Latest source release: [`v0.8.3`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.8.3).
+- Latest packaged Windows artifact: [`v0.8.3`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.8.3).
+- Current `v0.8.3` artifacts: `Ros2ForUnity_humble_standalone_windows_x86_64.zip`, `Ros2ForUnity_jazzy_standalone_windows_x86_64.zip`, and `Ros2ForUnity_lyrical_standalone_windows_x86_64.zip`. The release publishes matching `.sha256.txt` and `.manifest.json` files next to each zip. Optional `.unitypackage` outputs are created by `create_unity_package.*` and include their own adjacent `.sha256.txt`; they are not covered by the zip manifests.
 - Managed/native regression signal: `ros2cs_tests` passes as part of the Windows full-validation ladders for both Jazzy and Lyrical.
 
 Not yet claimed:
@@ -93,10 +93,10 @@ RobotecAI pre-built [releases](https://github.com/RobotecAI/ros2-for-unity/relea
 
 For this fork's Humble/Jazzy/Lyrical Windows maintenance line, use the JianbinLiu-CFLab releases:
 
-- latest source release: [`v0.8.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.8.1)
-- latest packaged Windows artifact: [`v0.8.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.8.1)
+- latest source release: [`v0.8.3`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.8.3)
+- latest packaged Windows artifact: [`v0.8.3`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.8.3)
 - current Windows artifacts: `Ros2ForUnity_humble_standalone_windows_x86_64.zip`, `Ros2ForUnity_jazzy_standalone_windows_x86_64.zip`, and `Ros2ForUnity_lyrical_standalone_windows_x86_64.zip`
-- previous: [`v0.8.0`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.8.0)
+- previous: [`v0.8.1`](https://github.com/JianbinLiu-CFLab/ros2-for-unity/releases/tag/v0.8.1)
 
 ## Building
 
