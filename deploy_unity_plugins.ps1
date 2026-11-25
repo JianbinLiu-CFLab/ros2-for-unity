@@ -159,6 +159,10 @@ function Copy-RosRuntimeShareClosure {
         "foonathan_memory_vendor",
         "rcpputils",
         "rcutils",
+        "rcl_logging_interface",
+        "rcl_logging_noop",
+        "rcl_logging_plugins",
+        "rcl_logging_spdlog",
         "rmw",
         "rmw_dds_common",
         "rmw_fastrtps_cpp",
@@ -400,6 +404,8 @@ try {
             "rcl_logging_interface.dll",
             "rcl_logging_noop.dll",
             "rcl_logging_spdlog.dll",
+            "rmw_zenoh_cpp.dll",
+            "zenohc.dll",
             "rosidl_buffer_backend_registry.dll",
             "rosidl_dynamic_typesupport_fastrtps.dll"
         )
@@ -451,6 +457,12 @@ try {
             if (Test-Path -LiteralPath (Join-Path -Path $shareDestination -ChildPath "ament_index\resource_index\packages\rosidl_dynamic_typesupport_fastrtps")) {
                 Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "rosidl_dynamic_typesupport_fastrtps.dll")
                 Assert-RequiredFile (Join-Path -Path $streamingAssetsShareDestination -ChildPath "ament_index\resource_index\packages\rosidl_dynamic_typesupport_fastrtps")
+            }
+            $zenohIndex = Join-Path -Path $shareDestination -ChildPath "ament_index\resource_index\rmw_typesupport\rmw_zenoh_cpp"
+            if (Test-Path -LiteralPath $zenohIndex) {
+                Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "rmw_zenoh_cpp.dll")
+                Assert-RequiredFile (Join-Path -Path $windowsPluginDir -ChildPath "zenohc.dll")
+                Assert-RequiredFile (Join-Path -Path $streamingAssetsShareDestination -ChildPath "ament_index\resource_index\rmw_typesupport\rmw_zenoh_cpp")
             }
             $yamlDll = Join-Path -Path $windowsPluginDir -ChildPath "yaml.dll"
             $yamlCppDll = Join-Path -Path $windowsPluginDir -ChildPath "yaml-cpp.dll"

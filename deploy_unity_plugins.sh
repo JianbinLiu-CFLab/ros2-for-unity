@@ -125,6 +125,10 @@ copy_ros_runtime_share_closure() {
     foonathan_memory_vendor
     rcpputils
     rcutils
+    rcl_logging_interface
+    rcl_logging_noop
+    rcl_logging_plugins
+    rcl_logging_spdlog
     rmw
     rmw_dds_common
     rmw_fastrtps_cpp
@@ -132,6 +136,7 @@ copy_ros_runtime_share_closure() {
     rmw_implementation
     rmw_implementation_cmake
     rmw_security_common
+    rmw_zenoh_cpp
     rosidl_buffer_backend
     rosidl_dynamic_typesupport
     rosidl_dynamic_typesupport_fastrtps
@@ -274,6 +279,7 @@ copy_ldconfig_runtime_libs() {
   local sonames=(
     "libyaml-cpp.so"
     "libyaml-cpp.so.0.8"
+    "libyaml-cpp.so.0.7"
     "libyaml-0.so.2"
   )
   local soname

@@ -441,6 +441,19 @@ try {
         }
     }
 
+    $customMessagePath = Join-Path -Path $ros2csSourcePath -ChildPath "custom_messages"
+    if (Test-Path -LiteralPath $customMessagePath -PathType Container) {
+        $customMessagePackages = @(& $colconExecutable list --base-paths $customMessagePath --names-only)
+        if ($LASTEXITCODE -ne 0) {
+            throw "colcon list failed while checking custom message packages."
+        }
+        $ros2csPackageTargets += @(
+            $customMessagePackages |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        )
+    }
+    $ros2csPackageTargets = @($ros2csPackageTargets | Sort-Object -Unique)
+
     $colconArgs = @(
         "--log-base", $ros2csLogBase,
         "build",
@@ -477,9 +490,11 @@ try {
     }
 
     $previousMakeflags = $env:MAKEFLAGS
+    $previousCmakeBuildParallelLevel = $env:CMAKE_BUILD_PARALLEL_LEVEL
     try {
         # colcon_cmake forwards MAKEFLAGS to CMake/Ninja; restore the caller's value after this build.
         $env:MAKEFLAGS = "-j$ros2csParallelWorkers -l$ros2csParallelWorkers"
+        $env:CMAKE_BUILD_PARALLEL_LEVEL = "$ros2csParallelWorkers"
         Invoke-Timed "ros2cs colcon build" {
             & $colconExecutable @colconArgs
             if($LASTEXITCODE -ne 0) {
@@ -492,6 +507,11 @@ try {
             Remove-Item Env:MAKEFLAGS -ErrorAction SilentlyContinue
         } else {
             $env:MAKEFLAGS = $previousMakeflags
+        }
+        if ($null -eq $previousCmakeBuildParallelLevel) {
+            Remove-Item Env:CMAKE_BUILD_PARALLEL_LEVEL -ErrorAction SilentlyContinue
+        } else {
+            $env:CMAKE_BUILD_PARALLEL_LEVEL = $previousCmakeBuildParallelLevel
         }
     }
 
