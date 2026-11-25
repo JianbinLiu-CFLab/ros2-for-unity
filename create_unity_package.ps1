@@ -150,7 +150,7 @@ if ([string]::IsNullOrEmpty($safe_unity_version)) {
     throw "Cannot derive a safe Unity version path from '$unity_version'."
 }
 $tmp_project_path = Join-Path -Path "$temp_dir" -ChildPath "ros2cs_unity_project\$safe_unity_version"
-$unityLogDir = Join-Path -Path "$temp_dir" -ChildPath "ros2cs_unity_project_logs"
+$unityLogDir = Join-Path -Path "$temp_dir" -ChildPath ("ros2cs_unity_project_logs_{0}" -f [Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force -Path $unityLogDir | Out-Null
 $createProjectLog = Join-Path -Path $unityLogDir -ChildPath "create_$safe_unity_version.log"
 $exportPackageLog = Join-Path -Path $unityLogDir -ChildPath "export_$safe_unity_version.log"
@@ -191,6 +191,10 @@ Mirror-Directory -Source "$input_asset" -Destination (Join-Path -Path $assetsPat
 Write-Host "Saving unitypackage '$outputPackagePath'..."
 if (Test-Path -LiteralPath $outputPackagePath) {
     Remove-Item -LiteralPath $outputPackagePath -Force
+}
+$checksumPath = "$outputPackagePath.sha256.txt"
+if (Test-Path -LiteralPath $checksumPath) {
+    Remove-Item -LiteralPath $checksumPath -Force
 }
 & "$unity_path" -projectPath "$tmp_project_path" -exportPackage "Assets\$package_name" "$outputPackagePath" -batchmode -quit 2>&1 | Tee-Object -FilePath $exportPackageLog | Out-Null
 if ($LASTEXITCODE -ne 0) {

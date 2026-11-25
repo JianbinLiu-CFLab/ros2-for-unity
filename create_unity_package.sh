@@ -188,10 +188,10 @@ echo "Using \"${UNITY_PATH}\" editor."
 
 TMP_ROOT="${TMPDIR:-/tmp}"
 TMP_PROJECT_PATH="$TMP_ROOT/ros2cs_unity_project/$SAFE_UNITY_VERSION"
-UNITY_LOG_DIR="$TMP_ROOT/ros2cs_unity_project_logs"
+mkdir -p "$TMP_ROOT"
+UNITY_LOG_DIR=$(mktemp -d "${TMP_ROOT%/}/ros2cs_unity_project_logs.XXXXXX")
 CREATE_PROJECT_LOG="$UNITY_LOG_DIR/create_$SAFE_UNITY_VERSION.log"
 EXPORT_PACKAGE_LOG="$UNITY_LOG_DIR/export_$SAFE_UNITY_VERSION.log"
-mkdir -p "$UNITY_LOG_DIR"
 OUTPUT_PACKAGE_NAME=$(join_package_name_parts "$PACKAGE_NAME" "$DISTRO" "$PLATFORM")
 if [ -z "$OUTPUT_PACKAGE_NAME" ]; then
     echo "Cannot derive output package name."
@@ -235,6 +235,7 @@ fi
 echo "Saving unitypackage '$OUTPUT_PACKAGE_PATH'..."
 mkdir -p "$OUTPUT_DIR"
 rm -f "$OUTPUT_PACKAGE_PATH"
+rm -f "${OUTPUT_PACKAGE_PATH}.sha256.txt"
 if ! "$UNITY_PATH" -projectPath "$TMP_PROJECT_PATH" -exportPackage "Assets/$PACKAGE_NAME" "$OUTPUT_PACKAGE_PATH" -batchmode -quit 2>&1 | tee "$EXPORT_PACKAGE_LOG"; then
   echo "Unity package export failed. See log: $EXPORT_PACKAGE_LOG" >&2
   exit 1
