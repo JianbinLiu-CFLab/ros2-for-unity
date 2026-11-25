@@ -289,6 +289,8 @@ namespace ROS2
                 executableActionSet = null;
                 nodes = null;
                 ros2csNodes = null;
+                actionsSnapshot = new Action[0];
+                nodesSnapshot = new INode[0];
             }
 
             if (instance != null)
