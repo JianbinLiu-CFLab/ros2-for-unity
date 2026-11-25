@@ -175,8 +175,13 @@ copy_ros_runtime_share_closure() {
   done
 
   local zenoh_config
-  for zenoh_config in     "rmw_zenoh_cpp/config/DEFAULT_RMW_ZENOH_SESSION_CONFIG.json5"     "rmw_zenoh_cpp/config/DEFAULT_RMW_ZENOH_ROUTER_CONFIG.json5"; do
-    copy_file_preserving_relative_path       "$source_share"       "$destination_share"       "$zenoh_config" || return
+  for zenoh_config in \
+    "rmw_zenoh_cpp/config/DEFAULT_RMW_ZENOH_SESSION_CONFIG.json5" \
+    "rmw_zenoh_cpp/config/DEFAULT_RMW_ZENOH_ROUTER_CONFIG.json5"; do
+    copy_file_preserving_relative_path \
+      "$source_share" \
+      "$destination_share" \
+      "$zenoh_config" || return
   done
 }
 
