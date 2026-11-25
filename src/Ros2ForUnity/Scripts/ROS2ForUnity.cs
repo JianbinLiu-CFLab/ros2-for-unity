@@ -620,24 +620,24 @@ internal class ROS2ForUnity : IDisposable
             try
             {
                 Ros2cs.Init();
+                RegisterCtrlCHandler();
+
+                string rmwImpl = Ros2cs.GetRMWImplementation();
+
+                Debug.Log("ROS2 version: " + currentRos2Version + ". Build type: " + standalone + ". RMW: " + rmwImpl);
+
+#if UNITY_EDITOR
+                RegisterEditorHandlers();
+#endif
+                isInitialized = true;
+                referenceCount = 1;
+                ownsReference = true;
             }
             catch
             {
                 Ros2ForUnityNativePluginBootstrap.ResetNativeLibraryRegistration();
                 throw;
             }
-            RegisterCtrlCHandler();
-
-            string rmwImpl = Ros2cs.GetRMWImplementation();
-
-            Debug.Log("ROS2 version: " + currentRos2Version + ". Build type: " + standalone + ". RMW: " + rmwImpl);
-
-#if UNITY_EDITOR
-            RegisterEditorHandlers();
-#endif
-            isInitialized = true;
-            referenceCount = 1;
-            ownsReference = true;
         }
     }
 
@@ -741,7 +741,15 @@ internal class ROS2ForUnity : IDisposable
     {
         // Executor joins must happen outside initMutex. Executor Tick() can call Ok(), which also
         // takes initMutex; joining here while holding it would create a fragile lock-order inversion.
-        ROS2UnityComponent.StopAllExecutorsForRosShutdown();
+        try
+        {
+            ROS2UnityComponent.StopAllExecutorsForRosShutdown();
+        }
+        catch (Exception e)
+        {
+            Debug.LogException(e);
+        }
+
         lock (initMutex)
         {
             if (!isInitialized)

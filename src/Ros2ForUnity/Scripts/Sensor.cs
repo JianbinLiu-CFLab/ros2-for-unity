@@ -110,16 +110,14 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
 
     public override string frameName()
     {
-        if (cachedFrameName != null)
+        string currentFrameName = String.IsNullOrEmpty(ownerAgentName)
+            ? frameID
+            : ownerAgentName + "/" + frameID;
+        if (!String.Equals(cachedFrameName, currentFrameName, StringComparison.Ordinal))
         {
-            return cachedFrameName;
+            cachedFrameName = currentFrameName;
         }
-
-        if (String.IsNullOrEmpty(ownerAgentName))
-        {
-            return frameID;
-        }
-        return ownerAgentName + "/" + frameID;
+        return cachedFrameName;
     }
 
     /// <summary>
