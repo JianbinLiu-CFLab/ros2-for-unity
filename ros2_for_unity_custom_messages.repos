@@ -5,14 +5,17 @@
 # - Empty by default so the maintained Jazzy artifact can be reproduced without private custom message inputs.
 #
 # NOTE: Use this file if you want to build with custom messages that reside in a separate remote repo.
+# NOTE: Import destinations are relative to the R2FU repository root.
+# NOTE: The canonical destination is src/ros2cs/src/custom_messages/.
+# NOTE: Move existing repositories from src/ros2cs/custom_messages/ before re-importing.
 # NOTE: use the following format
 
 repositories:
-#  src/ros2cs/custom_messages/<package_name>:
+#  src/ros2cs/src/custom_messages/<package_name>:
 #    type: git
 #    url: <repo_url>
 #    version: <repo_branch>
-#  src/ros2cs/custom_messages/<package2_name>:
+#  src/ros2cs/src/custom_messages/<package2_name>:
 #    ...
 #    ...
 

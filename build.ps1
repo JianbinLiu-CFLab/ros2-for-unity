@@ -442,6 +442,10 @@ try {
     }
 
     $customMessagePath = Join-Path -Path $ros2csSourcePath -ChildPath "custom_messages"
+    $legacyCustomMessagePath = Join-Path -Path $ros2csPath -ChildPath "custom_messages"
+    if (Test-Path -LiteralPath $legacyCustomMessagePath -PathType Container) {
+        throw "Custom messages use the legacy path '$legacyCustomMessagePath'. Move them to '$customMessagePath' and re-import before building."
+    }
     if (Test-Path -LiteralPath $customMessagePath -PathType Container) {
         $customMessagePackages = @(& $colconExecutable list --base-paths $customMessagePath --names-only)
         if ($LASTEXITCODE -ne 0) {
