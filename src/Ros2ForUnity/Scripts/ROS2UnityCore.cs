@@ -44,8 +44,8 @@ namespace ROS2
         private List<INode> ros2csNodes; // For performance in spinning
         private List<Action> executableActions;
         private HashSet<Action> executableActionSet;
-        private readonly List<Action> actionsSnapshot = new List<Action>();
-        private readonly List<INode> nodesSnapshot = new List<INode>();
+        private Action[] actionsSnapshot = new Action[0];
+        private List<INode> nodesSnapshot = new List<INode>();
         // Snapshot versions let Tick() reuse arrays unless node/executable collections changed.
         private int collectionVersion = 0;
         private int snapshotVersion = -1;
@@ -201,6 +201,8 @@ namespace ROS2
             while (!quitting)
             {
                 bool hasSnapshot = false;
+                Action[] actionsToExecute = null;
+                List<INode> nodesToSpin = null;
 
                 lock (mutex)
                 {
@@ -208,19 +210,19 @@ namespace ROS2
                     {
                         if (snapshotVersion != collectionVersion)
                         {
-                            actionsSnapshot.Clear();
-                            actionsSnapshot.AddRange(executableActions);
-                            nodesSnapshot.Clear();
-                            nodesSnapshot.AddRange(ros2csNodes);
+                            actionsSnapshot = executableActions.ToArray();
+                            nodesSnapshot = new List<INode>(ros2csNodes);
                             snapshotVersion = collectionVersion;
                         }
+                        actionsToExecute = actionsSnapshot;
+                        nodesToSpin = nodesSnapshot;
                         hasSnapshot = true;
                     }
                 }
 
                 if (hasSnapshot)
                 {
-                    foreach (Action action in actionsSnapshot)
+                    foreach (Action action in actionsToExecute)
                     {
                         try
                         {
@@ -232,11 +234,11 @@ namespace ROS2
                         }
                     }
 
-                    if (nodesSnapshot.Count > 0)
+                    if (nodesToSpin.Count > 0)
                     {
                         try
                         {
-                            Ros2cs.SpinOnce(nodesSnapshot, SpinTimeoutSeconds);
+                            Ros2cs.SpinOnce(nodesToSpin, SpinTimeoutSeconds);
                         }
                         catch (Exception e)
                         {
@@ -287,8 +289,8 @@ namespace ROS2
                 executableActionSet = null;
                 nodes = null;
                 ros2csNodes = null;
-                actionsSnapshot.Clear();
-                nodesSnapshot.Clear();
+                actionsSnapshot = new Action[0];
+                nodesSnapshot = new List<INode>();
             }
 
             if (instance != null)

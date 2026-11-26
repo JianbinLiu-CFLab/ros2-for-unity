@@ -47,16 +47,20 @@ public class ROS2UnityComponent : MonoBehaviour
     private List<INode> ros2csNodes; // For performance in spinning
     private List<Action> executableActions;
     private HashSet<Action> executableActionSet;
-    private readonly List<Action> actionsSnapshot = new List<Action>();
-    private readonly List<INode> nodesSnapshot = new List<INode>();
+    private Action[] actionsSnapshot = new Action[0];
+    private List<INode> nodesSnapshot = new List<INode>();
     // Snapshot versions let Tick() reuse arrays unless node/executable collections changed.
     private int collectionVersion = 0;
     private int snapshotVersion = -1;
     private bool initialized = false;
+    private bool stopping = false;
     // volatile: Tick() reads this lock-free in its loop condition after StopExecutor() sets it.
     private volatile bool quitting = false;
     private bool disposed = false;
+    private bool shutdownRequested = false;
+    private bool cleanupCompleted = false;
     private Thread executorThread;
+    private readonly ManualResetEventSlim executorStopped = new ManualResetEventSlim(true);
     private readonly object mutex = new object();
 
     /// <summary>
@@ -217,56 +221,76 @@ public class ROS2UnityComponent : MonoBehaviour
     /// </summary>
     private void Tick()
     {
-        while (!quitting)
+        try
         {
-            bool hasSnapshot = false;
-
-            lock (mutex)
+            while (!quitting)
             {
-                if (!quitting && !disposed && ros2forUnity != null && nodes != null && ros2forUnity.Ok())
-                {
-                    if (snapshotVersion != collectionVersion)
-                    {
-                        actionsSnapshot.Clear();
-                        actionsSnapshot.AddRange(executableActions);
-                        nodesSnapshot.Clear();
-                        nodesSnapshot.AddRange(ros2csNodes);
-                        snapshotVersion = collectionVersion;
-                    }
-                    hasSnapshot = true;
-                }
-            }
+                bool hasSnapshot = false;
+                Action[] actionsToExecute = null;
+                List<INode> nodesToSpin = null;
 
-            if (hasSnapshot)
-            {
-                foreach (Action action in actionsSnapshot)
+                lock (mutex)
                 {
-                    try
+                    if (!quitting && !disposed && ros2forUnity != null && nodes != null && ros2forUnity.Ok())
                     {
-                        action();
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.LogException(e);
+                        if (snapshotVersion != collectionVersion)
+                        {
+                            actionsSnapshot = executableActions.ToArray();
+                            nodesSnapshot = new List<INode>(ros2csNodes);
+                            snapshotVersion = collectionVersion;
+                        }
+                        actionsToExecute = actionsSnapshot;
+                        nodesToSpin = nodesSnapshot;
+                        hasSnapshot = true;
                     }
                 }
 
-                if (nodesSnapshot.Count > 0)
+                if (hasSnapshot)
                 {
-                    try
+                    foreach (Action action in actionsToExecute)
                     {
-                        Ros2cs.SpinOnce(nodesSnapshot, SpinTimeoutSeconds);
-                    }
-                    catch (Exception e)
-                    {
-                        if (!quitting)
+                        try
+                        {
+                            action();
+                        }
+                        catch (Exception e)
                         {
                             Debug.LogException(e);
                         }
                     }
+
+                    if (nodesToSpin.Count > 0)
+                    {
+                        try
+                        {
+                            Ros2cs.SpinOnce(nodesToSpin, SpinTimeoutSeconds);
+                        }
+                        catch (Exception e)
+                        {
+                            if (!quitting)
+                            {
+                                Debug.LogException(e);
+                            }
+                        }
+                    }
                 }
+                Thread.Sleep(SpinIntervalMilliseconds);
             }
-            Thread.Sleep(SpinIntervalMilliseconds);
+        }
+        finally
+        {
+            executorStopped.Set();
+            FinalizeExecutorStop(Thread.CurrentThread);
+            bool shouldCompleteShutdown;
+            lock (mutex)
+            {
+                shouldCompleteShutdown = shutdownRequested && !cleanupCompleted;
+            }
+            if (shouldCompleteShutdown)
+            {
+                CompleteShutdown();
+            }
+            ROS2ForUnity.RetryPendingShutdown();
         }
     }
 
@@ -282,66 +306,84 @@ public class ROS2UnityComponent : MonoBehaviour
     private void StartExecutor()
     {
         Thread threadToStart = null;
-        lock (mutex)
-        {
-            if (initialized || disposed)
-            {
-                return;
-            }
-
-            quitting = false;
-            executorThread = new Thread(() => Tick());
-            // Background thread: does not prevent process exit if Shutdown() is missed during teardown.
-            executorThread.IsBackground = true;
-            initialized = true;
-            threadToStart = executorThread;
-        }
-        RegisterLiveComponent(this);
-        threadToStart.Start();
-    }
-
-    private void StopExecutor()
-    {
-        Thread threadToJoin = null;
-        lock (mutex)
-        {
-            quitting = true;
-            threadToJoin = executorThread;
-        }
-
-        if (threadToJoin != null && threadToJoin != Thread.CurrentThread)
-        {
-            if (!threadToJoin.Join(ExecutorJoinTimeout))
-            {
-                Debug.LogWarning("ROS2UnityComponent executor thread did not stop within 2 seconds");
-            }
-        }
-
-        lock (mutex)
-        {
-            executorThread = null;
-            initialized = false;
-        }
-        UnregisterLiveComponent(this);
-    }
-
-    private static void RegisterLiveComponent(ROS2UnityComponent component)
-    {
         lock (liveComponentsMutex)
         {
-            liveComponents.Add(component);
+            lock (mutex)
+            {
+                if (initialized || stopping || disposed || ros2forUnity == null || !ros2forUnity.Ok())
+                {
+                    return;
+                }
+
+                quitting = false;
+                executorStopped.Reset();
+                executorThread = new Thread(() => Tick());
+                // Background thread: does not prevent process exit if Shutdown() is missed during teardown.
+                executorThread.IsBackground = true;
+                initialized = true;
+                liveComponents.Add(this);
+                threadToStart = executorThread;
+            }
+            threadToStart.Start();
         }
     }
 
-    private static void UnregisterLiveComponent(ROS2UnityComponent component)
+    private bool StopExecutor()
     {
+        Thread threadToStop;
+        ManualResetEventSlim stoppedEvent;
+        lock (mutex)
+        {
+            if (!stopping)
+            {
+                stopping = true;
+                quitting = true;
+            }
+
+            threadToStop = executorThread;
+            stoppedEvent = executorStopped;
+        }
+
+        if (threadToStop == null)
+        {
+            FinalizeExecutorStop(null);
+            return true;
+        }
+
+        if (threadToStop == Thread.CurrentThread)
+        {
+            return false;
+        }
+
+        if (!stoppedEvent.Wait(ExecutorJoinTimeout))
+        {
+            Debug.LogWarning("ROS2UnityComponent executor thread did not stop within 2 seconds");
+            return false;
+        }
+
+        FinalizeExecutorStop(threadToStop);
+        return true;
+    }
+
+    private void FinalizeExecutorStop(Thread threadToStop)
+    {
+        lock (mutex)
+        {
+            if (threadToStop == null || executorThread == threadToStop)
+            {
+                executorThread = null;
+                initialized = false;
+                stopping = false;
+            }
+        }
+
         lock (liveComponentsMutex)
         {
-            liveComponents.Remove(component);
+            liveComponents.Remove(this);
         }
     }
 
-    internal static void StopAllExecutorsForRosShutdown()
+    internal static bool StopAllExecutorsForRosShutdown()
     {
         List<ROS2UnityComponent> snapshot;
         lock (liveComponentsMutex)
@@ -349,14 +391,28 @@ public class ROS2UnityComponent : MonoBehaviour
             snapshot = new List<ROS2UnityComponent>(liveComponents);
         }
 
+        bool allStopped = true;
         foreach (ROS2UnityComponent component in snapshot)
         {
             if (component == null)
             {
                 continue;
             }
-            component.StopExecutor();
+
+            try
+            {
+                if (!component.StopExecutor())
+                {
+                    allStopped = false;
+                }
+            }
+            catch (Exception e)
+            {
+                allStopped = false;
+                Debug.LogException(e);
+            }
         }
+        return allStopped;
     }
 
     private void DisposeNodes()
@@ -395,16 +451,34 @@ public class ROS2UnityComponent : MonoBehaviour
     {
         lock (mutex)
         {
-            if (disposed)
+            if (cleanupCompleted)
             {
                 return;
             }
 
-            // Mark shutdown as started before joining/disposing so OnDestroy and OnApplicationQuit cannot race.
             disposed = true;
+            shutdownRequested = true;
         }
 
-        StopExecutor();
+        if (!StopExecutor())
+        {
+            return;
+        }
+
+        CompleteShutdown();
+    }
+
+    private void CompleteShutdown()
+    {
+        lock (mutex)
+        {
+            if (cleanupCompleted)
+            {
+                return;
+            }
+            cleanupCompleted = true;
+        }
+
         DisposeNodes();
 
         ROS2ForUnity instance = null;
@@ -416,14 +490,15 @@ public class ROS2UnityComponent : MonoBehaviour
             executableActionSet = null;
             nodes = null;
             ros2csNodes = null;
-            actionsSnapshot.Clear();
-            nodesSnapshot.Clear();
+            actionsSnapshot = new Action[0];
+            nodesSnapshot = new List<INode>();
         }
 
         if (instance != null)
         {
             instance.DestroyROS2ForUnity();
         }
+        ROS2ForUnity.RetryPendingShutdown();
     }
 
     private void ThrowIfDisposed()

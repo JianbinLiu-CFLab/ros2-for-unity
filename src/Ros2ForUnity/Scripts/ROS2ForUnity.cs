@@ -41,6 +41,8 @@ internal class ROS2ForUnity : IDisposable
     private static bool isInitialized = false;
     private static readonly object initMutex = new object();
     private static bool shutdownInProgress = false;
+    private static bool shutdownCompletionInProgress = false;
+    private static bool shutdownCompletionPending = false;
     private static int referenceCount = 0;
     // Prevents repeatedly prepending the plugin path across multiple ROS2ForUnity instances.
     private static bool pathConfigured = false;
@@ -617,27 +619,40 @@ internal class ROS2ForUnity : IDisposable
             // Initialize
             ConnectLoggers();
             Ros2ForUnityNativePluginBootstrap.SealNativeLibraryRegistration();
+            bool ros2csInitialized = false;
             try
             {
                 Ros2cs.Init();
+                ros2csInitialized = true;
+                RegisterCtrlCHandler();
+
+                string rmwImpl = Ros2cs.GetRMWImplementation();
+
+                Debug.Log("ROS2 version: " + currentRos2Version + ". Build type: " + standalone + ". RMW: " + rmwImpl);
+
+#if UNITY_EDITOR
+                RegisterEditorHandlers();
+#endif
+                isInitialized = true;
+                referenceCount = 1;
+                ownsReference = true;
             }
             catch
             {
+                if (ros2csInitialized)
+                {
+                    try
+                    {
+                        Ros2cs.Shutdown();
+                    }
+                    catch (Exception shutdownException)
+                    {
+                        Debug.LogException(shutdownException);
+                    }
+                }
                 Ros2ForUnityNativePluginBootstrap.ResetNativeLibraryRegistration();
                 throw;
             }
-            RegisterCtrlCHandler();
-
-            string rmwImpl = Ros2cs.GetRMWImplementation();
-
-            Debug.Log("ROS2 version: " + currentRos2Version + ". Build type: " + standalone + ". RMW: " + rmwImpl);
-
-#if UNITY_EDITOR
-            RegisterEditorHandlers();
-#endif
-            isInitialized = true;
-            referenceCount = 1;
-            ownsReference = true;
         }
     }
 
@@ -657,7 +672,7 @@ internal class ROS2ForUnity : IDisposable
     {
         lock (initMutex)
         {
-            if (!isInitialized)
+            if (!isInitialized || shutdownInProgress)
             {
                 return false;
             }
@@ -692,7 +707,7 @@ internal class ROS2ForUnity : IDisposable
 
         if (shouldShutdown)
         {
-            CompleteShutdownShared();
+            RetryPendingShutdown();
         }
     }
 
@@ -715,7 +730,7 @@ internal class ROS2ForUnity : IDisposable
 
         if (shouldShutdown)
         {
-            CompleteShutdownShared();
+            RetryPendingShutdown();
         }
     }
 
@@ -739,15 +754,45 @@ internal class ROS2ForUnity : IDisposable
 
     private static void CompleteShutdownShared()
     {
-        // Executor joins must happen outside initMutex. Executor Tick() can call Ok(), which also
-        // takes initMutex; joining here while holding it would create a fragile lock-order inversion.
-        ROS2UnityComponent.StopAllExecutorsForRosShutdown();
+        lock (initMutex)
+        {
+            if (!shutdownInProgress || !isInitialized || shutdownCompletionInProgress)
+            {
+                return;
+            }
+            shutdownCompletionInProgress = true;
+            shutdownCompletionPending = false;
+        }
+
+        // Executor stops happen outside initMutex. Tick() calls Ok(), which also takes initMutex.
+        bool executorsStopped;
+        try
+        {
+            executorsStopped = ROS2UnityComponent.StopAllExecutorsForRosShutdown();
+        }
+        catch (Exception e)
+        {
+            executorsStopped = false;
+            Debug.LogException(e);
+        }
+
+        if (!executorsStopped)
+        {
+            lock (initMutex)
+            {
+                shutdownCompletionPending = true;
+                shutdownCompletionInProgress = false;
+            }
+            return;
+        }
+
         lock (initMutex)
         {
             if (!isInitialized)
             {
                 referenceCount = 0;
-                shutdownInProgress = false;
+                shutdownCompletionPending = false;
+                shutdownCompletionInProgress = false;
                 return;
             }
 
@@ -768,9 +813,31 @@ internal class ROS2ForUnity : IDisposable
                 isInitialized = false;
                 referenceCount = 0;
                 shutdownInProgress = false;
+                shutdownCompletionPending = false;
+                shutdownCompletionInProgress = false;
                 Ros2ForUnityNativePluginBootstrap.ResetNativeLibraryRegistration();
                 UnregisterCtrlCHandlerStatic();
             }
+        }
+    }
+
+    internal static void RetryPendingShutdown()
+    {
+        bool shouldTry;
+        lock (initMutex)
+        {
+            if (!shutdownInProgress || !isInitialized)
+            {
+                return;
+            }
+
+            shutdownCompletionPending = true;
+            shouldTry = !shutdownCompletionInProgress;
+        }
+
+        if (shouldTry)
+        {
+            CompleteShutdownShared();
         }
     }
 

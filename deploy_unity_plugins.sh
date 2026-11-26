@@ -125,6 +125,10 @@ copy_ros_runtime_share_closure() {
     foonathan_memory_vendor
     rcpputils
     rcutils
+    rcl_logging_interface
+    rcl_logging_noop
+    rcl_logging_plugins
+    rcl_logging_spdlog
     rmw
     rmw_dds_common
     rmw_fastrtps_cpp
@@ -132,6 +136,7 @@ copy_ros_runtime_share_closure() {
     rmw_implementation
     rmw_implementation_cmake
     rmw_security_common
+    rmw_zenoh_cpp
     rosidl_buffer_backend
     rosidl_dynamic_typesupport
     rosidl_dynamic_typesupport_fastrtps
@@ -167,6 +172,16 @@ copy_ros_runtime_share_closure() {
         "$destination_share" \
         "ament_index/resource_index/$resource_index/$package_name" || return
     done
+  done
+
+  local zenoh_config
+  for zenoh_config in \
+    "rmw_zenoh_cpp/config/DEFAULT_RMW_ZENOH_SESSION_CONFIG.json5" \
+    "rmw_zenoh_cpp/config/DEFAULT_RMW_ZENOH_ROUTER_CONFIG.json5"; do
+    copy_file_preserving_relative_path \
+      "$source_share" \
+      "$destination_share" \
+      "$zenoh_config" || return
   done
 }
 
@@ -239,6 +254,8 @@ copy_ros_root_runtime_libs() {
     "libclass_loader.so*"
     "libfastdds.so*"
     "libfastrtps.so*"
+    "librmw_zenoh_cpp.so*"
+    "libzenohc.so*"
     "librcl_logging_implementation.so*"
     "librcl_logging_spdlog.so*"
     "librcl_logging_noop.so*"
@@ -274,6 +291,7 @@ copy_ldconfig_runtime_libs() {
   local sonames=(
     "libyaml-cpp.so"
     "libyaml-cpp.so.0.8"
+    "libyaml-cpp.so.0.7"
     "libyaml-0.so.2"
   )
   local soname
@@ -409,6 +427,14 @@ if [ -d "$installRoot/standalone" ] || [ -d "$installRoot/resources" ] || compge
   if compgen -G "${nativePluginDir}/librosidl_buffer_backend_registry.so*" > /dev/null; then
     require_file_glob "rosidl_buffer_backend package index" "${nativePluginDir}/share/ament_index/resource_index/packages/rosidl_buffer_backend"
     require_file_glob "StreamingAssets rosidl_buffer_backend package index" "${streamingAssetsShareDestination}/ament_index/resource_index/packages/rosidl_buffer_backend"
+  fi
+  if [ -f "${nativePluginDir}/share/ament_index/resource_index/rmw_typesupport/rmw_zenoh_cpp" ]; then
+    require_file_glob "rmw_zenoh_cpp runtime" "${nativePluginDir}/librmw_zenoh_cpp.so*"
+    require_file_glob "zenohc runtime" "${nativePluginDir}/libzenohc.so*"
+    require_file_glob "rmw_zenoh_cpp config" "${nativePluginDir}/share/rmw_zenoh_cpp/config/DEFAULT_RMW_ZENOH_SESSION_CONFIG.json5"
+    require_file_glob "rmw_zenoh_cpp router config" "${nativePluginDir}/share/rmw_zenoh_cpp/config/DEFAULT_RMW_ZENOH_ROUTER_CONFIG.json5"
+    require_file_glob "StreamingAssets rmw_zenoh_cpp config" "${streamingAssetsShareDestination}/rmw_zenoh_cpp/config/DEFAULT_RMW_ZENOH_SESSION_CONFIG.json5"
+    require_file_glob "StreamingAssets rmw_zenoh_cpp router config" "${streamingAssetsShareDestination}/rmw_zenoh_cpp/config/DEFAULT_RMW_ZENOH_ROUTER_CONFIG.json5"
   fi
   if ! compgen -G "${nativePluginDir}/libyaml.so*" > /dev/null && ! compgen -G "${nativePluginDir}/libyaml-cpp.so*" > /dev/null; then
     echo "Required deployed YAML runtime is missing: expected libyaml.so* or libyaml-cpp.so* under ${nativePluginDir}/" >&2
