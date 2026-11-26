@@ -754,13 +754,24 @@ internal class ROS2ForUnity : IDisposable
     {
         // Executor joins must happen outside initMutex. Executor Tick() can call Ok(), which also
         // takes initMutex; joining here while holding it would create a fragile lock-order inversion.
+        bool executorsStopped;
         try
         {
-            ROS2UnityComponent.StopAllExecutorsForRosShutdown();
+            executorsStopped = ROS2UnityComponent.StopAllExecutorsForRosShutdown();
         }
         catch (Exception e)
         {
+            executorsStopped = false;
             Debug.LogException(e);
+        }
+
+        if (!executorsStopped)
+        {
+            lock (initMutex)
+            {
+                shutdownInProgress = false;
+            }
+            return;
         }
 
         lock (initMutex)
