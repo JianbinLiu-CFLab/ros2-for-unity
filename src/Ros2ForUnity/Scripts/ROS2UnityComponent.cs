@@ -290,6 +290,7 @@ public class ROS2UnityComponent : MonoBehaviour
             {
                 CompleteShutdown();
             }
+            ROS2ForUnity.RetryPendingShutdown();
         }
     }
 

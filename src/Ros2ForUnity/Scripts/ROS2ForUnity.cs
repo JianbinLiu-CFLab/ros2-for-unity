@@ -42,6 +42,7 @@ internal class ROS2ForUnity : IDisposable
     private static readonly object initMutex = new object();
     private static bool shutdownInProgress = false;
     private static bool shutdownCompletionInProgress = false;
+    private static bool shutdownCompletionPending = false;
     private static int referenceCount = 0;
     // Prevents repeatedly prepending the plugin path across multiple ROS2ForUnity instances.
     private static bool pathConfigured = false;
@@ -706,7 +707,7 @@ internal class ROS2ForUnity : IDisposable
 
         if (shouldShutdown)
         {
-            CompleteShutdownShared();
+            RetryPendingShutdown();
         }
     }
 
@@ -729,7 +730,7 @@ internal class ROS2ForUnity : IDisposable
 
         if (shouldShutdown)
         {
-            CompleteShutdownShared();
+            RetryPendingShutdown();
         }
     }
 
@@ -755,11 +756,12 @@ internal class ROS2ForUnity : IDisposable
     {
         lock (initMutex)
         {
-            if (!shutdownInProgress || shutdownCompletionInProgress || !isInitialized)
+            if (!shutdownInProgress || !isInitialized || shutdownCompletionInProgress)
             {
                 return;
             }
             shutdownCompletionInProgress = true;
+            shutdownCompletionPending = false;
         }
 
         // Executor stops happen outside initMutex. Tick() calls Ok(), which also takes initMutex.
@@ -778,6 +780,7 @@ internal class ROS2ForUnity : IDisposable
         {
             lock (initMutex)
             {
+                shutdownCompletionPending = true;
                 shutdownCompletionInProgress = false;
             }
             return;
@@ -788,6 +791,7 @@ internal class ROS2ForUnity : IDisposable
             if (!isInitialized)
             {
                 referenceCount = 0;
+                shutdownCompletionPending = false;
                 shutdownCompletionInProgress = false;
                 return;
             }
@@ -809,6 +813,7 @@ internal class ROS2ForUnity : IDisposable
                 isInitialized = false;
                 referenceCount = 0;
                 shutdownInProgress = false;
+                shutdownCompletionPending = false;
                 shutdownCompletionInProgress = false;
                 Ros2ForUnityNativePluginBootstrap.ResetNativeLibraryRegistration();
                 UnregisterCtrlCHandlerStatic();
@@ -818,13 +823,23 @@ internal class ROS2ForUnity : IDisposable
 
     internal static void RetryPendingShutdown()
     {
-        bool shouldRetry;
+        bool shouldStart;
         lock (initMutex)
         {
-            shouldRetry = shutdownInProgress && isInitialized;
+            if (!shutdownInProgress || !isInitialized)
+            {
+                return;
+            }
+
+            shutdownCompletionPending = true;
+            shouldStart = !shutdownCompletionInProgress;
+            if (shouldStart)
+            {
+                shutdownCompletionInProgress = true;
+            }
         }
 
-        if (shouldRetry)
+        if (shouldStart)
         {
             CompleteShutdownShared();
         }
