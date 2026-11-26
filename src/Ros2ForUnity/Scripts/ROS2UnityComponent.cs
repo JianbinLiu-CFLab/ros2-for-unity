@@ -48,7 +48,7 @@ public class ROS2UnityComponent : MonoBehaviour
     private List<Action> executableActions;
     private HashSet<Action> executableActionSet;
     private Action[] actionsSnapshot = new Action[0];
-    private INode[] nodesSnapshot = new INode[0];
+    private List<INode> nodesSnapshot = new List<INode>();
     // Snapshot versions let Tick() reuse arrays unless node/executable collections changed.
     private int collectionVersion = 0;
     private int snapshotVersion = -1;
@@ -221,7 +221,7 @@ public class ROS2UnityComponent : MonoBehaviour
         {
             bool hasSnapshot = false;
             Action[] actionsToExecute = null;
-            INode[] nodesToSpin = null;
+            List<INode> nodesToSpin = null;
 
             lock (mutex)
             {
@@ -230,7 +230,7 @@ public class ROS2UnityComponent : MonoBehaviour
                     if (snapshotVersion != collectionVersion)
                     {
                         actionsSnapshot = executableActions.ToArray();
-                        nodesSnapshot = ros2csNodes.ToArray();
+                        nodesSnapshot = new List<INode>(ros2csNodes);
                         snapshotVersion = collectionVersion;
                     }
                     actionsToExecute = actionsSnapshot;
@@ -253,7 +253,7 @@ public class ROS2UnityComponent : MonoBehaviour
                     }
                 }
 
-                if (nodesToSpin.Length > 0)
+                if (nodesToSpin.Count > 0
                 {
                     try
                     {
@@ -407,7 +407,7 @@ public class ROS2UnityComponent : MonoBehaviour
             nodes = null;
             ros2csNodes = null;
             actionsSnapshot = new Action[0];
-            nodesSnapshot = new INode[0];
+            nodesSnapshot = new List<INode>();
         }
 
         if (instance != null)

@@ -103,6 +103,8 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
     private ROS2Node ros2Node;
     private string ownerAgentName;
     private string cachedFrameName;
+    private string cachedFrameID;
+    private string cachedOwnerAgentName;
 
     private T readings;
     private bool newReadings;
@@ -110,12 +112,14 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
 
     public override string frameName()
     {
-        string currentFrameName = String.IsNullOrEmpty(ownerAgentName)
-            ? frameID
-            : ownerAgentName + "/" + frameID;
-        if (!String.Equals(cachedFrameName, currentFrameName, StringComparison.Ordinal))
+        if (!String.Equals(cachedFrameID, frameID, StringComparison.Ordinal) ||
+            !String.Equals(cachedOwnerAgentName, ownerAgentName, StringComparison.Ordinal))
         {
-            cachedFrameName = currentFrameName;
+            cachedFrameID = frameID;
+            cachedOwnerAgentName = ownerAgentName;
+            cachedFrameName = String.IsNullOrEmpty(ownerAgentName)
+                ? frameID
+                : ownerAgentName + "/" + frameID;
         }
         return cachedFrameName;
     }
@@ -158,6 +162,8 @@ public abstract class Sensor<T> : ISensor where T : class, MessageWithHeader, ne
         }
 
         ownerAgentName = agentName;
+        cachedFrameID = frameID;
+        cachedOwnerAgentName = ownerAgentName;
         cachedFrameName = String.IsNullOrEmpty(ownerAgentName) ? frameID : ownerAgentName + "/" + frameID;
         ros2UnityComponent = ros2Unity;
         ros2Node = node;

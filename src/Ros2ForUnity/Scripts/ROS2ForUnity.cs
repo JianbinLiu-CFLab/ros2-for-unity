@@ -670,7 +670,7 @@ internal class ROS2ForUnity : IDisposable
     {
         lock (initMutex)
         {
-            if (!isInitialized)
+            if (!isInitialized || shutdownInProgress)
             {
                 return false;
             }
