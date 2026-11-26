@@ -497,6 +497,7 @@ public class ROS2UnityComponent : MonoBehaviour
         {
             instance.DestroyROS2ForUnity();
         }
+        ROS2ForUnity.RetryPendingShutdown();
     }
 
     private void ThrowIfDisposed()

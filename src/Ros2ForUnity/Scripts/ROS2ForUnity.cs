@@ -41,6 +41,7 @@ internal class ROS2ForUnity : IDisposable
     private static bool isInitialized = false;
     private static readonly object initMutex = new object();
     private static bool shutdownInProgress = false;
+    private static bool shutdownCompletionInProgress = false;
     private static int referenceCount = 0;
     // Prevents repeatedly prepending the plugin path across multiple ROS2ForUnity instances.
     private static bool pathConfigured = false;
@@ -752,8 +753,16 @@ internal class ROS2ForUnity : IDisposable
 
     private static void CompleteShutdownShared()
     {
-        // Executor joins must happen outside initMutex. Executor Tick() can call Ok(), which also
-        // takes initMutex; joining here while holding it would create a fragile lock-order inversion.
+        lock (initMutex)
+        {
+            if (!shutdownInProgress || shutdownCompletionInProgress || !isInitialized)
+            {
+                return;
+            }
+            shutdownCompletionInProgress = true;
+        }
+
+        // Executor stops happen outside initMutex. Tick() calls Ok(), which also takes initMutex.
         bool executorsStopped;
         try
         {
@@ -769,7 +778,7 @@ internal class ROS2ForUnity : IDisposable
         {
             lock (initMutex)
             {
-                shutdownInProgress = false;
+                shutdownCompletionInProgress = false;
             }
             return;
         }
@@ -779,7 +788,7 @@ internal class ROS2ForUnity : IDisposable
             if (!isInitialized)
             {
                 referenceCount = 0;
-                shutdownInProgress = false;
+                shutdownCompletionInProgress = false;
                 return;
             }
 
@@ -800,9 +809,24 @@ internal class ROS2ForUnity : IDisposable
                 isInitialized = false;
                 referenceCount = 0;
                 shutdownInProgress = false;
+                shutdownCompletionInProgress = false;
                 Ros2ForUnityNativePluginBootstrap.ResetNativeLibraryRegistration();
                 UnregisterCtrlCHandlerStatic();
             }
+        }
+    }
+
+    internal static void RetryPendingShutdown()
+    {
+        bool shouldRetry;
+        lock (initMutex)
+        {
+            shouldRetry = shutdownInProgress && isInitialized;
+        }
+
+        if (shouldRetry)
+        {
+            CompleteShutdownShared();
         }
     }
 
