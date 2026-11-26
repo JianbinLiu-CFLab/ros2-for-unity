@@ -234,7 +234,7 @@ namespace ROS2
                         }
                     }
 
-                    if (nodesToSpin.Count > 0
+                    if (nodesToSpin.Count > 0)
                     {
                         try
                         {

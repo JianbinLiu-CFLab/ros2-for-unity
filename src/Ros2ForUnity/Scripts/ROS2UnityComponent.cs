@@ -253,7 +253,7 @@ public class ROS2UnityComponent : MonoBehaviour
                     }
                 }
 
-                if (nodesToSpin.Count > 0
+                if (nodesToSpin.Count > 0)
                 {
                     try
                     {
