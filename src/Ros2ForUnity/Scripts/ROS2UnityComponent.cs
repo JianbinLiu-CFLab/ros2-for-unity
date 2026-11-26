@@ -53,6 +53,7 @@ public class ROS2UnityComponent : MonoBehaviour
     private int collectionVersion = 0;
     private int snapshotVersion = -1;
     private bool initialized = false;
+    private bool stopping = false;
     // volatile: Tick() reads this lock-free in its loop condition after StopExecutor() sets it.
     private volatile bool quitting = false;
     private bool disposed = false;
@@ -288,7 +289,7 @@ public class ROS2UnityComponent : MonoBehaviour
         {
             lock (mutex)
             {
-                if (initialized || disposed || ros2forUnity == null || !ros2forUnity.Ok())
+                if (initialized || stopping || disposed || ros2forUnity == null || !ros2forUnity.Ok())
                 {
                     return;
                 }
@@ -307,45 +308,59 @@ public class ROS2UnityComponent : MonoBehaviour
 
     private void StopExecutor()
     {
+        Thread threadToJoin;
+        lock (mutex)
+        {
+            if (stopping)
+            {
+                return;
+            }
+
+            stopping = true;
+            quitting = true;
+            threadToJoin = executorThread;
+        }
+
+        if (threadToJoin != null && threadToJoin != Thread.CurrentThread)
+        {
+            if (!threadToJoin.Join(ExecutorJoinTimeout))
+            {
+                Debug.LogWarning("ROS2UnityComponent executor thread did not stop within 2 seconds");
+            }
+        }
+
+        lock (mutex)
+        {
+            executorThread = null;
+            initialized = false;
+        }
+
         lock (liveComponentsMutex)
         {
-            Thread threadToJoin = null;
-            lock (mutex)
-            {
-                quitting = true;
-                threadToJoin = executorThread;
-            }
-
-            if (threadToJoin != null && threadToJoin != Thread.CurrentThread)
-            {
-                if (!threadToJoin.Join(ExecutorJoinTimeout))
-                {
-                    Debug.LogWarning("ROS2UnityComponent executor thread did not stop within 2 seconds");
-                }
-            }
-
-            lock (mutex)
-            {
-                executorThread = null;
-                initialized = false;
-            }
             liveComponents.Remove(this);
+        }
+
+        lock (mutex)
+        {
+            stopping = false;
         }
     }
 
     internal static void StopAllExecutorsForRosShutdown()
     {
+        List<ROS2UnityComponent> snapshot;
         lock (liveComponentsMutex)
         {
-            List<ROS2UnityComponent> snapshot = new List<ROS2UnityComponent>(liveComponents);
-            foreach (ROS2UnityComponent component in snapshot)
+            snapshot = new List<ROS2UnityComponent>(liveComponents);
+        }
+
+        foreach (ROS2UnityComponent component in snapshot)
+        {
+            if (component == null)
             {
-                if (component == null)
-                {
-                    continue;
-                }
-                component.StopExecutor();
+                continue;
             }
+            component.StopExecutor();
         }
     }
 
