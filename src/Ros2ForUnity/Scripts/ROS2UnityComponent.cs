@@ -222,69 +222,60 @@ public class ROS2UnityComponent : MonoBehaviour
     private void Tick()
     {
         try
-        {    
-            try
-            {    
-                while (!quitting)
+        {
+            while (!quitting)
+            {
+                bool hasSnapshot = false;
+                Action[] actionsToExecute = null;
+                List<INode> nodesToSpin = null;
+
+                lock (mutex)
                 {
-                    bool hasSnapshot = false;
-                    Action[] actionsToExecute = null;
-                    List<INode> nodesToSpin = null;
-        
-                    lock (mutex)
+                    if (!quitting && !disposed && ros2forUnity != null && nodes != null && ros2forUnity.Ok())
                     {
-                        if (!quitting && !disposed && ros2forUnity != null && nodes != null && ros2forUnity.Ok())
+                        if (snapshotVersion != collectionVersion)
                         {
-                            if (snapshotVersion != collectionVersion)
-                            {
-                                actionsSnapshot = executableActions.ToArray();
-                                nodesSnapshot = new List<INode>(ros2csNodes);
-                                snapshotVersion = collectionVersion;
-                            }
-                            actionsToExecute = actionsSnapshot;
-                            nodesToSpin = nodesSnapshot;
-                            hasSnapshot = true;
+                            actionsSnapshot = executableActions.ToArray();
+                            nodesSnapshot = new List<INode>(ros2csNodes);
+                            snapshotVersion = collectionVersion;
+                        }
+                        actionsToExecute = actionsSnapshot;
+                        nodesToSpin = nodesSnapshot;
+                        hasSnapshot = true;
+                    }
+                }
+
+                if (hasSnapshot)
+                {
+                    foreach (Action action in actionsToExecute)
+                    {
+                        try
+                        {
+                            action();
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogException(e);
                         }
                     }
-        
-                    if (hasSnapshot)
+
+                    if (nodesToSpin.Count > 0)
                     {
-                        foreach (Action action in actionsToExecute)
+                        try
                         {
-                            try
-                            {
-                                action();
-                            }
-                            catch (Exception e)
+                            Ros2cs.SpinOnce(nodesToSpin, SpinTimeoutSeconds);
+                        }
+                        catch (Exception e)
+                        {
+                            if (!quitting)
                             {
                                 Debug.LogException(e);
                             }
                         }
-        
-                        if (nodesToSpin.Count > 0)
-                        {
-                            try
-                            {
-                                Ros2cs.SpinOnce(nodesToSpin, SpinTimeoutSeconds);
-                            }
-                            catch (Exception e)
-                            {
-                                if (!quitting)
-                                {
-                                    Debug.LogException(e);
-                                }
-                            }
-                        }
                     }
-                    Thread.Sleep(SpinIntervalMilliseconds);
                 }
-            
+                Thread.Sleep(SpinIntervalMilliseconds);
             }
-            finally
-            {
-                executorStopped.Set();
-            }
-        
         }
         finally
         {
