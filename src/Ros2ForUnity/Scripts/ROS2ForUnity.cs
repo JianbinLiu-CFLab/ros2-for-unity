@@ -823,7 +823,7 @@ internal class ROS2ForUnity : IDisposable
 
     internal static void RetryPendingShutdown()
     {
-        bool shouldStart;
+        bool shouldTry;
         lock (initMutex)
         {
             if (!shutdownInProgress || !isInitialized)
@@ -832,14 +832,10 @@ internal class ROS2ForUnity : IDisposable
             }
 
             shutdownCompletionPending = true;
-            shouldStart = !shutdownCompletionInProgress;
-            if (shouldStart)
-            {
-                shutdownCompletionInProgress = true;
-            }
+            shouldTry = !shutdownCompletionInProgress;
         }
 
-        if (shouldStart)
+        if (shouldTry)
         {
             CompleteShutdownShared();
         }
