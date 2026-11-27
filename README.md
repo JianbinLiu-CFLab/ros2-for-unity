@@ -32,7 +32,7 @@ This fork consumes the maintained ros2cs fork through `ros2cs.repos`:
 
 ```text
 https://github.com/JianbinLiu-CFLab/ros2cs.git
-version: 4252e38a5bafe6102c3f8f3dcb5cb591492ba087
+version: 48e191866a5aa86070bb0f23b3a621bbfba9ec76
 ```
 
 The `main` branch remains the active integration line, while public build inputs are pinned to verified commit hashes for reproducibility. Pin history and purpose are tracked in `ros2cs.repos`.
